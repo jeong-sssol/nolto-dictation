@@ -1,3 +1,4 @@
+
 // 1. Firebase 설정
 const firebaseConfig = {
     apiKey: "AIzaSyBC1SxIW-8_RuDojcEv8vXpRqs0qEVGrEA",
@@ -9,7 +10,7 @@ const firebaseConfig = {
     appId: "1:490060326215:web:7f4e511b6df2587f819862"
 };
 
-// 2. Firebase 초기화 및 연결
+// 2. Firebase 초기화
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const dbRef = db.ref('nolto_data_v9');
@@ -19,10 +20,11 @@ const App = {
     localData: null,
     
     init: () => {
+        // 서버에서 값이 바뀔 때마다 실시간 감지
         dbRef.on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                // 🔥 Firebase가 빈 데이터를 삭제하는 것에 대비한 완벽 방어 코드
+                // 🔥 Firebase가 빈 폴더를 지워버리는 현상 완벽 방어
                 if (!data.groups) data.groups = {};
                 if (!data.settings) data.settings = {};
                 if (!data.settings.passwords) data.settings.passwords = {};
@@ -31,14 +33,18 @@ const App = {
                 App.localData = data;
                 window.dispatchEvent(new Event('app-sync')); 
                 
+                // 학생 화면 셀렉트 박스 동기화 (모둠 수가 변경되었을 때만)
                 const groupSelect = document.getElementById('group-select');
                 if (groupSelect && groupSelect.options.length !== data.settings.groupCount) {
+                    const currentVal = groupSelect.value;
                     groupSelect.innerHTML = '';
                     for(let i=1; i<=data.settings.groupCount; i++) {
                         groupSelect.innerHTML += `<option value="${i}">${i} 모둠</option>`;
                     }
+                    if(currentVal) groupSelect.value = currentVal;
                 }
             } else {
+                // 데이터가 아예 없으면 초기화 실행
                 App.factoryReset();
             }
         });
@@ -60,8 +66,7 @@ const App = {
                 clearTrigger: 0 
             },
             groups: {
-                // Firebase가 groups를 통째로 지우는 것을 막기 위한 더미 데이터
-                "0": { dummy: true }
+                "0": { dummy: true } // 파이어베이스 삭제 방지용 더미
             }
         };
         dbRef.set(defaultData);
@@ -70,16 +75,27 @@ const App = {
     getData: () => {
         let data = App.localData;
         if (!data) {
-            data = { settings: { groupCount: 6, passwords: {}, answers: {} }, groups: {} };
+            return {
+                settings: { adminPassword: '1234', groupCount: 6, passwords: {}, totalRounds: 3, answers: {}, currentRound: 1, teacherFontSize: 24, isLocked: false, timerEnd: null, currentEffect: null, clearTrigger: 0 },
+                groups: {}
+            };
         }
-        if (!data.groups) data.groups = {};
-        if (!data.settings.passwords) data.settings.passwords = {};
-        if (!data.settings.answers) data.settings.answers = {};
-        return data;
+        // 원본 데이터를 보호하기 위해 복사본 리턴
+        let cloned = JSON.parse(JSON.stringify(data));
+        if (!cloned.groups) cloned.groups = {};
+        if (!cloned.settings) cloned.settings = {};
+        if (!cloned.settings.passwords) cloned.settings.passwords = {};
+        if (!cloned.settings.answers) cloned.settings.answers = {};
+        return cloned;
     },
 
     saveData: (data) => {
-        dbRef.set(data);
+        // Optimistic UI Update: 서버 응답을 기다리지 않고 화면을 먼저 0.001초 만에 갱신
+        App.localData = JSON.parse(JSON.stringify(data)); 
+        window.dispatchEvent(new Event('app-sync')); 
+        
+        // 서버에는 백그라운드로 전송
+        dbRef.set(data); 
     },
 
     getSettings: () => App.getData().settings,
@@ -188,6 +204,7 @@ const App = {
         const data = App.getData();
         if(!data.groups[groupId]) return;
         if(!data.groups[groupId].membersData) data.groups[groupId].membersData = {};
+        
         if(!data.groups[groupId].membersData[memberName]) {
             data.groups[groupId].membersData[memberName] = {};
         }
@@ -242,4 +259,4 @@ const App = {
     }
 };
 
-App.init(); // 스크립트가 로드되자마자 Firebase 감지 시작!
+App.init(); // 스크립트 실행 시 즉시 Firebase 리스닝 시작

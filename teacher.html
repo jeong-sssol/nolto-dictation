@@ -2,32 +2,32 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>교사 모드 - 놀토 받쓰</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="teacher-bg">
     <header class="teacher-header" style="flex-direction: column; align-items: stretch; gap: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
             <h1>👨‍🏫 교사 실시간 모니터링</h1>
             <div class="toolbar" style="background: transparent; padding: 0;">
                 <button onclick="toggleSettings()">⚙️ 수업 설정</button>
                 <button onclick="App.triggerClearAll(); App.clearAllBoards(); alert('모든 학생의 화면과 데이터가 지워졌습니다.');" style="background: #e67e22; color:white;">🧽 전체 받쓰판 지우기</button>
-                <button onclick="resetAllData()" style="background: #e74c3c; color:white;">🚨 리셋 (새수업)</button>
+                <button onclick="resetAllData()" style="background: #e74c3c; color:white;">🚨 리셋(새수업)</button>
             </div>
         </div>
         
-        <!-- 실시간 통제 패널 -->
-        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; gap: 20px; align-items: center;">
+        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap:10px;">
+            <div style="display: flex; gap: 10px; align-items: center;">
                 <div style="font-size: 1.2rem; font-weight: bold;">진행 중인 라운드:</div>
                 <select id="active-round-select" class="wide-dropdown" style="width: 150px; font-weight:bold;" onchange="changeActiveRound()"></select>
             </div>
             
-            <div style="display: flex; gap: 15px; align-items: center;">
+            <div style="display: flex; gap: 10px; align-items: center;">
                 <div style="font-size: 1.2rem; font-weight: bold;">타이머 설정:</div>
-                <input type="number" id="timer-min" value="0" min="0" style="width: 60px; font-size:1.2rem; text-align:center;"> 분
-                <input type="number" id="timer-sec" value="0" min="0" max="59" style="width: 60px; font-size:1.2rem; text-align:center;"> 초
+                <input type="number" id="timer-min" value="0" min="0" style="width: 50px; font-size:1.2rem; text-align:center;"> 분
+                <input type="number" id="timer-sec" value="0" min="0" max="59" style="width: 50px; font-size:1.2rem; text-align:center;"> 초
                 <button onclick="startTimer()" style="background: #27ae60; color:white; padding: 5px 15px; font-size:1.1rem; border:none; border-radius:5px; cursor:pointer;">▶ 시작</button>
                 <button onclick="App.stopTimer()" style="background: #7f8c8d; color:white; padding: 5px 15px; font-size:1.1rem; border:none; border-radius:5px; cursor:pointer;">⏹ 정지</button>
             </div>
@@ -37,14 +37,11 @@
             </div>
         </div>
 
-        <!-- 🌟 V7 이벤트 패널 -->
         <div style="background: rgba(241, 196, 15, 0.15); padding: 15px; border-radius: 10px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #f1c40f;">
             <div style="font-size: 1.2rem; font-weight: bold; color: #f1c40f;">🎉 리액션 이벤트 (대상 모둠 다중 선택 가능)</div>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div id="effect-checkboxes" style="display:flex; gap:15px; flex-wrap:wrap; font-size:1.2rem;">
-                    <!-- JS 동적 생성 -->
-                </div>
-                <div style="display:flex; gap:10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                <div id="effect-checkboxes" style="display:flex; gap:15px; flex-wrap:wrap; font-size:1.2rem;"></div>
+                <div style="display:flex; gap:10px; margin-top: 10px;">
                     <button onclick="triggerEffect('boom')" style="background:#e74c3c; color:white; padding:8px 15px; font-size:1.1rem; border:none; border-radius:5px; cursor:pointer;">🍿 오답 강냉이</button>
                     <button onclick="triggerEffect('oneshot')" style="background:#3498db; color:white; padding:8px 15px; font-size:1.1rem; border:none; border-radius:5px; cursor:pointer;">📸 원샷 (종이꽃가루)</button>
                 </div>
@@ -52,14 +49,13 @@
         </div>
     </header>
 
-    <!-- ⚙️ 교사 설정 패널 -->
     <div id="settings-panel" class="settings-panel hidden">
         <div style="width: 100%; text-align:center; font-size: 1.5rem; color: #1976d2; font-weight:bold; margin-bottom:10px;">기본 설정</div>
         
         <div class="setting-row">
-            <label>교사 비밀번호: <input type="text" id="set-admin-pw" style="width:120px;"></label>
-            <label>모둠 수: <input type="number" id="set-groups" min="1" max="10" style="width:80px;" onchange="renderDynamicInputs()"></label>
-            <label>전체 라운드 수: <input type="number" id="set-total-rounds" min="1" max="10" style="width:80px;" onchange="renderDynamicInputs()"></label>
+            <label>교사 비밀번호: <input type="text" id="set-admin-pw" style="width:100px;"></label>
+            <label>모둠 수: <input type="number" id="set-groups" min="1" max="10" style="width:70px;" onchange="renderDynamicInputs()"></label>
+            <label>전체 라운드 수: <input type="number" id="set-total-rounds" min="1" max="10" style="width:70px;" onchange="renderDynamicInputs()"></label>
             <label>CCTV 텍스트 크기: <input type="range" id="cctv-font-size" min="10" max="60" value="24" onchange="renderCCTV()"> <span id="font-size-val"></span></label>
         </div>
         
@@ -72,11 +68,13 @@
         <button onclick="saveSettings()" style="width: 200px; margin-top:20px;">설정 저장 및 적용</button>
     </div>
 
-    <!-- CCTV 모니터링 그리드 -->
     <div class="cctv-grid" id="cctv-container"></div>
+
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="js/app.js"></script>
+
     <script>
         const cctvContainer = document.getElementById('cctv-container');
 
@@ -106,11 +104,10 @@
             const ansContainer = document.getElementById('answers-container');
             let ansHtml = '';
             for(let i=1; i<=roundCount; i++) {
-                ansHtml += `<label>${i}라운드: <input type="text" id="ans-${i}" value="${existingAns[i]||''}" style="width:500px;"></label>`;
+                ansHtml += `<label>${i}라운드: <input type="text" id="ans-${i}" value="${existingAns[i]||''}" style="width:90%; max-width:500px;"></label>`;
             }
             ansContainer.innerHTML = ansHtml;
 
-            // 이벤트 패널 체크박스 업데이트
             const effContainer = document.getElementById('effect-checkboxes');
             let effHtml = '';
             const groups = App.getAllGroups();
@@ -147,7 +144,7 @@
         function resetAllData() {
             if(confirm("모든 모둠 데이터와 받쓰판이 삭제됩니다. 새로운 반에서 수업하시겠습니까?")) {
                 App.factoryReset();
-                location.reload();
+                setTimeout(() => location.reload(), 500);
             }
         }
 
@@ -171,7 +168,7 @@
                 btnLock.style.color = 'black';
             }
 
-            renderDynamicInputs(settings.passwords, settings.answers); // 체크박스 이름 동기화용
+            renderDynamicInputs(settings.passwords, settings.answers); 
         }
 
         function changeActiveRound() {
@@ -201,7 +198,6 @@
             const targets = Array.from(checkboxes).map(cb => parseInt(cb.value));
             App.triggerEffect(type, targets);
             alert(`${targets.join(', ')}모둠에 이벤트를 전송했습니다!`);
-            // 체크 해제
             checkboxes.forEach(cb => cb.checked = false);
         }
 
