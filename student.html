@@ -11,8 +11,8 @@
         <div class="modal-content">
             <h2>학생 입장</h2>
             <select id="group-select"></select>
-            <input type="password" id="group-pw" placeholder="모둠 비밀번호">
-            <input type="text" id="student-name" placeholder="이름">
+            <input type="password" id="group-pw" placeholder="모둠 비밀번호 (없으면 빈칸)">
+            <input type="text" id="student-name" placeholder="학번+이름 (예: 10101 홍길동)">
             <button onclick="joinGroup()">입장하기</button>
         </div>
     </div>
@@ -35,7 +35,7 @@
                 <div class="view-control" style="display:flex; align-items:center;">
                     <label style="margin-right:5px; font-size: 1.1rem;">👀 보기:</label>
                     <select id="view-select" class="wide-dropdown" onchange="changeView()" style="min-width:130px;">
-                        <option value="me">내 받쓰판 작성하기</option>
+                        <option value="me">내 화면 작성하기</option>
                     </select>
                 </div>
 
@@ -51,7 +51,7 @@
             <button id="btn-pen" class="active" onclick="setMode('pen')">🖊️ 펜</button>
             <button id="btn-eraser" onclick="setMode('eraser')">🧽 지우개</button>
             <button id="btn-text" onclick="setMode('text')">⌨️ 텍스트(T)</button>
-            <button onclick="clearBoard()">🗑️ 받쓰판 지우기</button>
+            <button onclick="clearBoard()">🗑️ 내 판 지우기</button>
             
             <div class="tool-settings">
                 <label>색상: <input type="color" id="color-picker" value="#ffffff"></label>
@@ -80,9 +80,13 @@
     <div id="effect-overlay" class="effect-overlay hidden">
         <div id="effect-content" class="effect-content"></div>
     </div>
+
+    
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="js/app.js"></script>
+
     <script>
         let myGroup = '', myName = '', isMaster = false, isDrawing = false, mode = 'pen';
         let viewTarget = 'me'; 
@@ -112,11 +116,6 @@
 
         window.onload = () => {
             const settings = App.getSettings();
-            const select = document.getElementById('group-select');
-            for(let i=1; i<=settings.groupCount; i++) {
-                select.innerHTML += `<option value="${i}">${i} 모둠</option>`;
-            }
-            updateToolSettings();
             if(settings.currentEffect) lastEffectTs = settings.currentEffect.ts;
             if(settings.clearTrigger) lastClearTs = settings.clearTrigger;
         };
@@ -140,7 +139,7 @@
         }
 
         function editGroupName() {
-            const newName = prompt("우리 모둠의 새 이름을 정해주세요!");
+            const newName = prompt("우리 모둠의 새 이름을 정해주세요! (예: 이기조)");
             if (newName !== null && newName.trim() !== "") {
                 App.setGroupName(myGroup, newName.trim());
             }
@@ -162,7 +161,7 @@
             sendRealTimeData();
         }
 
-        canvas.addEventListener('mousedown', (e) => { if(viewTarget === 'me' && !isBoardLocked()) { isDrawing = true; draw(e); }});
+        canvas.addEventListener('mousedown', (e) => { if(viewTarget === 'me' && !isBoardLocked()) { isDrawing = true; draw(e); } });
         canvas.addEventListener('mousemove', draw);
         window.addEventListener('mouseup', () => { 
             if(isDrawing) { isDrawing = false; ctx.beginPath(); sendRealTimeData(); }
@@ -230,7 +229,7 @@
                 textBoard.value = '';
             }
             
-            const customName = groupData.customName ? ` <span style="color:#e67e22">[${groupData.customName}]</span>` : '';
+            const customName = groupData.customName ? ` <span style="color:#e67e22">[{groupData.customName}]</span>` : '';
             document.getElementById('group-title').innerHTML = `${myGroup}모둠${customName}`;
             document.getElementById('my-name-display').innerText = `${myName}`;
 
@@ -239,7 +238,7 @@
             const memberSelect = document.getElementById('member-list');
             const viewSelect = document.getElementById('view-select');
             
-            let viewHtml = `<option value="me">👉 내 받쓰판 작성하기</option>`;
+            let viewHtml = `<option value="me">👉 내 화면 작성하기</option>`;
             groupData.members.filter(m => m !== myName).forEach(m => {
                 const label = (m === groupData.master) ? `👑 ${m} (방장)` : `👀 ${m}`;
                 viewHtml += `<option value="${m}">${label}</option>`;
@@ -278,7 +277,6 @@
         function manageTimerAndLock(settings) {
             clearInterval(timerInterval);
             updateTimerDisplay();
-            
             if (settings.timerEnd) {
                 timerInterval = setInterval(updateTimerDisplay, 500);
             }
@@ -352,11 +350,12 @@
                     sharedText.style.fontSize = (targetData.size * 2 + 30) + 'px';
                 } else {
                     sharedText.classList.add('hidden');
-                    sharedImg.classList.remove('hidden');
                     if (targetData.data) {
                         sharedImg.src = targetData.data;
+                        sharedImg.classList.remove('hidden'); // 그림이 있을 때만 보이게!
                     } else {
                         sharedImg.src = '';
+                        sharedImg.classList.add('hidden'); // 그림이 없으면 아예 숨겨서 깨진 아이콘 안 보이게!
                     }
                 }
             }
