@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>학생 모드</title>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="login-modal" class="modal active">
+        <div class="modal-content">
+            <h2>학생 입장</h2>
+            <select id="group-select"></select>
+            <input type="password" id="group-pw" placeholder="모둠 비밀번호">
+            <input type="text" id="student-name" placeholder="이름">
+            <button onclick="joinGroup()">입장하기</button>
+        </div>
+    </div>
+
+    <div id="student-main" class="hidden">
+        <header class="header" style="white-space: nowrap; min-width: 1000px; margin: 0 auto;">
+            <div class="header-left" style="display: flex; align-items: center; gap: 10px; white-space: nowrap;">
+                <h2 id="group-title" style="margin: 0; font-size: 1.6rem;"></h2>
+                <button id="btn-edit-name" class="hidden" onclick="editGroupName()" style="background:#f1c40f; border:none; padding:5px 8px; border-radius:5px; cursor:pointer; font-size:1rem;">✏️ 이름 변경</button>
+                <span id="my-name-display" style="font-size:1.1rem; color:#555;"></span>
+                <span id="master-badge" class="badge hidden">👑 방장(제출자)</span>
+            </div>
+
+            <div class="header-center" style="display: flex; align-items: center; justify-content: center; gap: 20px; white-space: nowrap; flex: 1;">
+                <span id="round-display" style="font-size: 1.8rem; color: #d32f2f; font-weight: bold;"></span>
+                <span id="timer-display" style="font-size: 2.5rem; color: #1976d2; font-weight: bold; font-variant-numeric: tabular-nums;">⏱️ --:--</span>
+            </div>
+
+            <div class="header-right" style="display: flex; align-items: center; gap: 15px; white-space: nowrap;">
+                <div class="view-control" style="display:flex; align-items:center;">
+                    <label style="margin-right:5px; font-size: 1.1rem;">👀 보기:</label>
+                    <select id="view-select" class="wide-dropdown" onchange="changeView()" style="min-width:130px;">
+                        <option value="me">내 받쓰판 작성하기</option>
+                    </select>
+                </div>
+
+                <div class="master-control" style="display:flex; align-items:center; border-left: 2px solid #ccc; padding-left: 15px;">
+                    <label style="margin-right:5px; font-size: 1.1rem;">👑 권한:</label>
+                    <select id="member-list" class="wide-dropdown hidden" style="min-width:100px;"></select>
+                    <button id="btn-transfer" class="hidden" onclick="transferMaster()" style="margin-left:5px; background:#3498db; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size: 1.1rem;">넘기기</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="toolbar">
+            <button id="btn-pen" class="active" onclick="setMode('pen')">🖊️ 펜</button>
+            <button id="btn-eraser" onclick="setMode('eraser')">🧽 지우개</button>
+            <button id="btn-text" onclick="setMode('text')">⌨️ 텍스트(T)</button>
+            <button onclick="clearBoard()">🗑️ 받쓰판 지우기</button>
+            
+            <div class="tool-settings">
+                <label>색상: <input type="color" id="color-picker" value="#ffffff"></label>
+                <label>크기: <input type="range" id="size-picker" min="2" max="50" value="5"></label>
+            </div>
+        </div>
+
+        <div class="board-container">
+            <canvas id="drawing-board" width="1000" height="562"></canvas>
+            <textarea id="text-board" class="hidden" placeholder="정답을 타이핑하세요..."></textarea>
+            
+            <img id="shared-board" class="hidden" src="" alt="공유화면">
+            <div id="shared-text" class="hidden board-text-overlay"></div>
+            <div id="read-only-msg" class="hidden" style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.7); color:white; padding:10px; border-radius:5px; z-index:100;">👀 관전 모드 (읽기 전용)</div>
+            
+            <div id="lock-overlay" class="lock-overlay hidden">
+                <div class="lock-message">
+                    <span style="font-size: 5rem;">🔒</span><br>
+                    작성 시간이 종료되었거나 선생님이 화면을 잠갔습니다.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 이벤트 오버레이 -->
+    <div id="effect-overlay" class="effect-overlay hidden">
+        <div id="effect-content" class="effect-content"></div>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        let myGroup = '', myName = '', isMaster = false, isDrawing = false, mode = 'pen';
+        let viewTarget = 'me'; 
+        let timerInterval = null;
+        let lastEffectTs = 0;
+        let lastClearTs = 0;
+
+        const canvas = document.getElementById('drawing-board');
+        const ctx = canvas.getContext('2d');
+        const textBoard = document.getElementById('text-board');
+        
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        document.getElementById('color-picker').addEventListener('input', updateToolSettings);
+        document.getElementById('size-picker').addEventListener('input', updateToolSettings);
+        
+        function updateToolSettings() {
+            const color = document.getElementById('color-picker').value;
+            const size = document.getElementById('size-picker').value;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = size;
+            textBoard.style.color = color;
+            textBoard.style.fontSize = (size * 2 + 30) + 'px';
+            sendRealTimeData();
+        }
+
+        window.onload = () => {
+            const settings = App.getSettings();
+            const select = document.getElementById('group-select');
+            for(let i=1; i<=settings.groupCount; i++) {
+                select.innerHTML += `<option value="${i}">${i} 모둠</option>`;
+            }
+            updateToolSettings();
+            if(settings.currentEffect) lastEffectTs = settings.currentEffect.ts;
+            if(settings.clearTrigger) lastClearTs = settings.clearTrigger;
+        };
+
+        function joinGroup() {
+            myGroup = document.getElementById('group-select').value;
+            myName = document.getElementById('student-name').value.trim();
+            const pw = document.getElementById('group-pw').value;
+            const settings = App.getSettings();
+
+            if (!myName) { alert('이름을 입력하세요.'); return; }
+            if (settings.passwords[myGroup] && settings.passwords[myGroup] !== pw) {
+                alert('비밀번호가 틀렸습니다.'); return;
+            }
+
+            App.joinMember(myGroup, myName);
+            document.getElementById('login-modal').classList.add('hidden');
+            document.getElementById('student-main').classList.remove('hidden');
+            
+            syncUI();
+        }
+
+        function editGroupName() {
+            const newName = prompt("우리 모둠의 새 이름을 정해주세요!");
+            if (newName !== null && newName.trim() !== "") {
+                App.setGroupName(myGroup, newName.trim());
+            }
+        }
+
+        function setMode(newMode) {
+            mode = newMode;
+            document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${mode}`).classList.add('active');
+            
+            if (mode === 'text') {
+                canvas.style.pointerEvents = 'none';
+                textBoard.classList.remove('hidden');
+            } else {
+                canvas.style.pointerEvents = 'auto';
+                textBoard.classList.add('hidden');
+                ctx.globalCompositeOperation = (mode === 'eraser') ? 'destination-out' : 'source-over';
+            }
+            sendRealTimeData();
+        }
+
+        canvas.addEventListener('mousedown', (e) => { if(viewTarget === 'me' && !isBoardLocked()) { isDrawing = true; draw(e); }});
+        canvas.addEventListener('mousemove', draw);
+        window.addEventListener('mouseup', () => { 
+            if(isDrawing) { isDrawing = false; ctx.beginPath(); sendRealTimeData(); }
+        });
+        textBoard.addEventListener('keyup', sendRealTimeData);
+
+        function draw(e) {
+            if (!isDrawing || viewTarget !== 'me' || isBoardLocked()) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        function clearBoard() {
+            if (viewTarget !== 'me') { alert("내 화면일 때만 지울 수 있습니다."); return; }
+            if (isBoardLocked()) { alert("현재 작성 시간이 종료되었거나 잠금 상태입니다."); return; }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            textBoard.value = '';
+            sendRealTimeData();
+        }
+
+        function sendRealTimeData() {
+            if (viewTarget !== 'me' || isBoardLocked()) return;
+            const data = (mode === 'text') ? textBoard.value : canvas.toDataURL('image/png');
+            App.updateMemberBoard(myGroup, myName, { 
+                type: mode, 
+                data: data, 
+                color: document.getElementById('color-picker').value, 
+                size: document.getElementById('size-picker').value 
+            });
+        }
+
+        function changeView() {
+            viewTarget = document.getElementById('view-select').value;
+            renderView();
+        }
+
+        function transferMaster() {
+            const target = document.getElementById('member-list').value;
+            if (target && target !== myName) {
+                App.setMaster(myGroup, target);
+                alert(`${target} 학생에게 권한을 넘겼습니다.`);
+            }
+        }
+
+        window.addEventListener('app-sync', syncUI);
+        
+        function syncUI() {
+            if(!myGroup) return;
+            const groupData = App.getGroup(myGroup);
+            const settings = App.getSettings();
+            
+            isMaster = (groupData.master === myName);
+            
+            if (settings.clearTrigger && settings.clearTrigger > lastClearTs) {
+                lastClearTs = settings.clearTrigger;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                textBoard.value = '';
+            }
+            
+            const customName = groupData.customName ? ` <span style="color:#e67e22">[${groupData.customName}]</span>` : '';
+            document.getElementById('group-title').innerHTML = `${myGroup}모둠${customName}`;
+            document.getElementById('my-name-display').innerText = `${myName}`;
+
+            document.getElementById('round-display').innerText = `🔥 ${settings.currentRound}라운드`;
+
+            const memberSelect = document.getElementById('member-list');
+            const viewSelect = document.getElementById('view-select');
+            
+            let viewHtml = `<option value="me">👉 내 받쓰판 작성하기</option>`;
+            groupData.members.filter(m => m !== myName).forEach(m => {
+                const label = (m === groupData.master) ? `👑 ${m} (방장)` : `👀 ${m}`;
+                viewHtml += `<option value="${m}">${label}</option>`;
+            });
+            viewSelect.innerHTML = viewHtml;
+            viewSelect.value = viewTarget; 
+
+            memberSelect.innerHTML = groupData.members.filter(m => m !== myName).map(m => `<option value="${m}">${m}</option>`).join('');
+            
+            if (isMaster) {
+                document.getElementById('master-badge').classList.remove('hidden');
+                document.getElementById('btn-edit-name').classList.remove('hidden');
+                memberSelect.classList.remove('hidden');
+                document.getElementById('btn-transfer').classList.remove('hidden');
+            } else {
+                document.getElementById('master-badge').classList.add('hidden');
+                document.getElementById('btn-edit-name').classList.add('hidden');
+                memberSelect.classList.add('hidden');
+                document.getElementById('btn-transfer').classList.add('hidden');
+            }
+
+            renderView();
+            manageTimerAndLock(settings);
+            checkEffects(settings);
+        }
+
+        function isBoardLocked() {
+            const settings = App.getSettings();
+            if (settings.isLocked) return true;
+            if (settings.timerEnd) {
+                return (settings.timerEnd - Date.now()) <= 0;
+            }
+            return false;
+        }
+
+        function manageTimerAndLock(settings) {
+            clearInterval(timerInterval);
+            updateTimerDisplay();
+            
+            if (settings.timerEnd) {
+                timerInterval = setInterval(updateTimerDisplay, 500);
+            }
+        }
+
+        function updateTimerDisplay() {
+            const settings = App.getSettings();
+            let timeText = "--:--";
+            let lockedByTimer = false;
+
+            if (settings.timerEnd) {
+                const left = Math.floor((settings.timerEnd - Date.now()) / 1000);
+                if (left <= 0) {
+                    timeText = "00:00";
+                    lockedByTimer = true;
+                    clearInterval(timerInterval);
+                } else {
+                    const m = String(Math.floor(left / 60)).padStart(2, '0');
+                    const s = String(left % 60).padStart(2, '0');
+                    timeText = `${m}:${s}`;
+                }
+            }
+            
+            document.getElementById('timer-display').innerText = `⏱️ ${timeText}`;
+
+            const lockOverlay = document.getElementById('lock-overlay');
+            if (settings.isLocked || lockedByTimer) {
+                lockOverlay.classList.remove('hidden');
+                canvas.style.pointerEvents = 'none';
+                textBoard.disabled = true;
+            } else {
+                lockOverlay.classList.add('hidden');
+                if (viewTarget === 'me') {
+                    canvas.style.pointerEvents = (mode === 'text') ? 'none' : 'auto';
+                    textBoard.disabled = false;
+                }
+            }
+        }
+
+        function renderView() {
+            if(!myGroup) return;
+            const groupData = App.getGroup(myGroup);
+            const sharedImg = document.getElementById('shared-board');
+            const sharedText = document.getElementById('shared-text');
+            const readOnlyMsg = document.getElementById('read-only-msg');
+
+            if (viewTarget === 'me') {
+                canvas.style.opacity = '1';
+                textBoard.style.opacity = '1';
+                canvas.style.pointerEvents = (mode === 'text') ? 'none' : 'auto';
+                textBoard.disabled = false;
+                
+                sharedImg.classList.add('hidden');
+                sharedText.classList.add('hidden');
+                readOnlyMsg.classList.add('hidden');
+            } else {
+                canvas.style.opacity = '0';
+                textBoard.style.opacity = '0';
+                canvas.style.pointerEvents = 'none';
+                textBoard.disabled = true;
+                
+                readOnlyMsg.classList.remove('hidden');
+
+                const targetData = groupData.membersData[viewTarget] || { type: 'pen', data: '', color: '#fff', size: 5 };
+                
+                if (targetData.type === 'text') {
+                    sharedImg.classList.add('hidden');
+                    sharedText.classList.remove('hidden');
+                    sharedText.innerText = targetData.data;
+                    sharedText.style.color = targetData.color || '#ffffff';
+                    sharedText.style.fontSize = (targetData.size * 2 + 30) + 'px';
+                } else {
+                    sharedText.classList.add('hidden');
+                    sharedImg.classList.remove('hidden');
+                    if (targetData.data) {
+                        sharedImg.src = targetData.data;
+                    } else {
+                        sharedImg.src = '';
+                    }
+                }
+            }
+            updateTimerDisplay();
+        }
+
+        function checkEffects(settings) {
+            if (settings.currentEffect && settings.currentEffect.ts > lastEffectTs) {
+                lastEffectTs = settings.currentEffect.ts;
+                const effect = settings.currentEffect;
+                
+                if (effect.type === 'boom') {
+                    if (effect.targets.includes(parseInt(myGroup))) {
+                        playEffect(effect);
+                    }
+                } else {
+                    playEffect(effect);
+                }
+            }
+        }
+
+        function playEffect(effect) {
+            const overlay = document.getElementById('effect-overlay');
+            const content = document.getElementById('effect-content');
+            overlay.classList.remove('hidden');
+            
+            document.querySelectorAll('.particle').forEach(p => p.remove());
+
+            const groupsData = App.getAllGroups();
+            let targetNames = [];
+            effect.targets.forEach(gId => {
+                const gData = groupsData[gId];
+                if(gData && gData.customName) {
+                    targetNames.push(`${gId}모둠[${gData.customName}]`);
+                } else {
+                    targetNames.push(`${gId}모둠`);
+                }
+            });
+
+            if (effect.type === 'boom') {
+                content.innerHTML = `<div class="boom-text">💥 땡! 오답!<br><span style="color:#f1c40f;">${targetNames.join(', ')}</span></div>`;
+                createParticles(['🍿', '💣', '💨'], 50);
+            } else if (effect.type === 'oneshot') {
+                content.innerHTML = `<div class="oneshot-text">📸 원샷!<br><span style="color:#fff; text-shadow: 2px 2px #d32f2f;">${targetNames.join('<br>')}</span></div>`;
+                createParticles(['🎉', '🎊', '✨', '🥇'], 80);
+            }
+
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                content.innerHTML = '';
+            }, 5000);
+        }
+
+        function createParticles(emojis, count) {
+            for(let i=0; i<count; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.innerText = emojis[Math.floor(Math.random() * emojis.length)];
+                p.style.left = Math.random() * 100 + 'vw';
+                p.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                p.style.animationDelay = (Math.random() * 1) + 's';
+                p.style.fontSize = (Math.random() * 2 + 1.5) + 'rem';
+                document.body.appendChild(p);
+            }
+        }
+    </script>
+</body>
+</html>

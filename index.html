@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>놀토 역사 받쓰 퀴즈</title>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="main-bg">
+    <div class="main-container">
+        <h1 class="main-title">🎵 놀라운 토요일 <span>역사 받쓰판</span> 📝</h1>
+        <div class="split-screen">
+            <div class="card student-card" onclick="location.href='student.html'">
+                <h2>🎓 학생 입장</h2>
+                <p>모둠 방에 들어가서<br>받아쓰기를 시작하세요!</p>
+            </div>
+            <div class="card teacher-card" onclick="checkTeacher()">
+                <h2>👨‍🏫 교사 모드</h2>
+                <p>설정 및 실시간 모니터링</p>
+            </div>
+        </div>
+        <p style="margin-top: 30px; color: #555; font-size: 1.2rem;">ⓒ 2026 jeong_sssol</p>
+    </div>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        function checkTeacher() {
+            const settings = App.getSettings();
+            const adminPassword = settings.adminPassword || "1234"; 
+            const pw = prompt("교사 관리자 비밀번호를 입력하세요.");
+            if (pw === adminPassword) {
+                location.href = 'teacher.html';
+            } else if (pw !== null) {
+                alert("비밀번호가 틀렸습니다.");
+            }
+        }
+    </script>
+</body>
+</html>

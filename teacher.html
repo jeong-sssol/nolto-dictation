@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>교사 모드 - 놀토 받쓰</title>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="teacher-bg">
+    <header class="teacher-header" style="flex-direction: column; align-items: stretch; gap: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1>👨‍🏫 교사 실시간 모니터링</h1>
+            <div class="toolbar" style="background: transparent; padding: 0;">
+                <button onclick="toggleSettings()">⚙️ 수업 설정</button>
+                <button onclick="App.triggerClearAll(); App.clearAllBoards(); alert('모든 학생의 화면과 데이터가 지워졌습니다.');" style="background: #e67e22; color:white;">🧽 전체 받쓰판 지우기</button>
+                <button onclick="resetAllData()" style="background: #e74c3c; color:white;">🚨 리셋 (새수업)</button>
+            </div>
+        </div>
+        
+        <!-- 실시간 통제 패널 -->
+        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; gap: 20px; align-items: center;">
+                <div style="font-size: 1.2rem; font-weight: bold;">진행 중인 라운드:</div>
+                <select id="active-round-select" class="wide-dropdown" style="width: 150px; font-weight:bold;" onchange="changeActiveRound()"></select>
+            </div>
+            
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <div style="font-size: 1.2rem; font-weight: bold;">타이머 설정:</div>
+                <input type="number" id="timer-min" value="0" min="0" style="width: 60px; font-size:1.2rem; text-align:center;"> 분
+                <input type="number" id="timer-sec" value="0" min="0" max="59" style="width: 60px; font-size:1.2rem; text-align:center;"> 초
+                <button onclick="startTimer()" style="background: #27ae60; color:white; padding: 5px 15px; font-size:1.1rem; border:none; border-radius:5px; cursor:pointer;">▶ 시작</button>
+                <button onclick="App.stopTimer()" style="background: #7f8c8d; color:white; padding: 5px 15px; font-size:1.1rem; border:none; border-radius:5px; cursor:pointer;">⏹ 정지</button>
+            </div>
+
+            <div>
+                <button id="btn-lock" onclick="toggleLock()" style="padding: 10px 20px; font-size:1.2rem; font-weight:bold; border:none; border-radius:5px; cursor:pointer; transition:0.3s;"></button>
+            </div>
+        </div>
+
+        <!-- 🌟 V7 이벤트 패널 -->
+        <div style="background: rgba(241, 196, 15, 0.15); padding: 15px; border-radius: 10px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #f1c40f;">
+            <div style="font-size: 1.2rem; font-weight: bold; color: #f1c40f;">🎉 리액션 이벤트 (대상 모둠 다중 선택 가능)</div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div id="effect-checkboxes" style="display:flex; gap:15px; flex-wrap:wrap; font-size:1.2rem;">
+                    <!-- JS 동적 생성 -->
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="triggerEffect('boom')" style="background:#e74c3c; color:white; padding:8px 15px; font-size:1.1rem; border:none; border-radius:5px; cursor:pointer;">🍿 오답 강냉이</button>
+                    <button onclick="triggerEffect('oneshot')" style="background:#3498db; color:white; padding:8px 15px; font-size:1.1rem; border:none; border-radius:5px; cursor:pointer;">📸 원샷 (종이꽃가루)</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ⚙️ 교사 설정 패널 -->
+    <div id="settings-panel" class="settings-panel hidden">
+        <div style="width: 100%; text-align:center; font-size: 1.5rem; color: #1976d2; font-weight:bold; margin-bottom:10px;">기본 설정</div>
+        
+        <div class="setting-row">
+            <label>교사 비밀번호: <input type="text" id="set-admin-pw" style="width:120px;"></label>
+            <label>모둠 수: <input type="number" id="set-groups" min="1" max="10" style="width:80px;" onchange="renderDynamicInputs()"></label>
+            <label>전체 라운드 수: <input type="number" id="set-total-rounds" min="1" max="10" style="width:80px;" onchange="renderDynamicInputs()"></label>
+            <label>CCTV 텍스트 크기: <input type="range" id="cctv-font-size" min="10" max="60" value="24" onchange="renderCCTV()"> <span id="font-size-val"></span></label>
+        </div>
+        
+        <div style="width: 100%; margin-top:15px; font-weight:bold; color:#27ae60;">라운드별 정답 세팅 (띄어쓰기 무시)</div>
+        <div id="answers-container" style="display:flex; flex-direction:column; gap:10px; width:100%; align-items:center;"></div>
+
+        <div style="width: 100%; margin-top:15px; font-weight:bold; color:#e67e22;">모둠별 비밀번호 설정 (비워두면 비번 없음)</div>
+        <div id="group-pw-container" class="setting-row" style="flex-wrap: wrap; justify-content:center;"></div>
+
+        <button onclick="saveSettings()" style="width: 200px; margin-top:20px;">설정 저장 및 적용</button>
+    </div>
+
+    <!-- CCTV 모니터링 그리드 -->
+    <div class="cctv-grid" id="cctv-container"></div>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        const cctvContainer = document.getElementById('cctv-container');
+
+        window.onload = () => {
+            const settings = App.getSettings();
+            document.getElementById('set-admin-pw').value = settings.adminPassword || '1234';
+            document.getElementById('set-groups').value = settings.groupCount;
+            document.getElementById('set-total-rounds').value = settings.totalRounds || 3;
+            document.getElementById('cctv-font-size').value = settings.teacherFontSize || 24;
+            
+            renderDynamicInputs(settings.passwords, settings.answers);
+            updateDashboardControls();
+            renderCCTV();
+        };
+
+        function renderDynamicInputs(existingPws = {}, existingAns = {}) {
+            const groupCount = parseInt(document.getElementById('set-groups').value);
+            const roundCount = parseInt(document.getElementById('set-total-rounds').value);
+            
+            const pwContainer = document.getElementById('group-pw-container');
+            let pwHtml = '';
+            for(let i=1; i<=groupCount; i++) {
+                pwHtml += `<label style="margin:5px;">${i}모둠: <input type="text" id="pw-${i}" value="${existingPws[i]||''}" style="width:80px;"></label>`;
+            }
+            pwContainer.innerHTML = pwHtml;
+
+            const ansContainer = document.getElementById('answers-container');
+            let ansHtml = '';
+            for(let i=1; i<=roundCount; i++) {
+                ansHtml += `<label>${i}라운드: <input type="text" id="ans-${i}" value="${existingAns[i]||''}" style="width:500px;"></label>`;
+            }
+            ansContainer.innerHTML = ansHtml;
+
+            // 이벤트 패널 체크박스 업데이트
+            const effContainer = document.getElementById('effect-checkboxes');
+            let effHtml = '';
+            const groups = App.getAllGroups();
+            for(let i=1; i<=groupCount; i++) {
+                const gName = (groups[i] && groups[i].customName) ? `[${groups[i].customName}]` : '';
+                effHtml += `<label style="cursor:pointer;"><input type="checkbox" name="eff-group" value="${i}" style="transform:scale(1.5); margin-right:5px;"> ${i}모둠${gName}</label>`;
+            }
+            effContainer.innerHTML = effHtml;
+        }
+
+        function toggleSettings() {
+            document.getElementById('settings-panel').classList.toggle('hidden');
+        }
+
+        function saveSettings() {
+            const adminPw = document.getElementById('set-admin-pw').value;
+            const groupCount = parseInt(document.getElementById('set-groups').value);
+            const totalRounds = parseInt(document.getElementById('set-total-rounds').value);
+            const teacherFontSize = document.getElementById('cctv-font-size').value;
+            
+            let passwords = {};
+            for(let i=1; i<=groupCount; i++) passwords[i] = document.getElementById(`pw-${i}`).value;
+            
+            let answers = {};
+            for(let i=1; i<=totalRounds; i++) answers[i] = document.getElementById(`ans-${i}`).value;
+            
+            App.saveSettings(adminPw, groupCount, passwords, totalRounds, answers, teacherFontSize);
+            alert("설정이 성공적으로 저장되었습니다.");
+            toggleSettings();
+            updateDashboardControls();
+            renderCCTV();
+        }
+
+        function resetAllData() {
+            if(confirm("모든 모둠 데이터와 받쓰판이 삭제됩니다. 새로운 반에서 수업하시겠습니까?")) {
+                App.factoryReset();
+                location.reload();
+            }
+        }
+
+        function updateDashboardControls() {
+            const settings = App.getSettings();
+            const roundSelect = document.getElementById('active-round-select');
+            roundSelect.innerHTML = '';
+            for(let i=1; i<=settings.totalRounds; i++) {
+                roundSelect.innerHTML += `<option value="${i}">${i} 라운드 채점</option>`;
+            }
+            roundSelect.value = settings.currentRound;
+
+            const btnLock = document.getElementById('btn-lock');
+            if (settings.isLocked) {
+                btnLock.innerText = '🔒 받쓰판 잠금 해제';
+                btnLock.style.background = '#d32f2f';
+                btnLock.style.color = 'white';
+            } else {
+                btnLock.innerText = '🔓 받쓰판 강제 잠금';
+                btnLock.style.background = '#f1c40f';
+                btnLock.style.color = 'black';
+            }
+
+            renderDynamicInputs(settings.passwords, settings.answers); // 체크박스 이름 동기화용
+        }
+
+        function changeActiveRound() {
+            const round = parseInt(document.getElementById('active-round-select').value);
+            App.setCurrentRound(round);
+        }
+
+        function toggleLock() {
+            const settings = App.getSettings();
+            App.setLock(!settings.isLocked);
+        }
+
+        function startTimer() {
+            const m = parseInt(document.getElementById('timer-min').value) || 0;
+            const s = parseInt(document.getElementById('timer-sec').value) || 0;
+            const totalSec = (m * 60) + s;
+            if (totalSec > 0) App.startTimer(totalSec);
+            else alert("시간을 설정해주세요.");
+        }
+
+        function triggerEffect(type) {
+            const checkboxes = document.querySelectorAll('input[name="eff-group"]:checked');
+            if(checkboxes.length === 0) {
+                alert("이벤트를 전송할 모둠을 최소 1개 이상 선택해주세요.");
+                return;
+            }
+            const targets = Array.from(checkboxes).map(cb => parseInt(cb.value));
+            App.triggerEffect(type, targets);
+            alert(`${targets.join(', ')}모둠에 이벤트를 전송했습니다!`);
+            // 체크 해제
+            checkboxes.forEach(cb => cb.checked = false);
+        }
+
+        window.addEventListener('app-sync', () => {
+            updateDashboardControls();
+            renderCCTV();
+        });
+
+        function renderCCTV() {
+            const settings = App.getSettings();
+            const groups = App.getAllGroups();
+            const tFontSize = settings.teacherFontSize || 24;
+            const currentAns = settings.answers[settings.currentRound] || '';
+            
+            document.getElementById('font-size-val').innerText = tFontSize + 'px';
+            cctvContainer.innerHTML = '';
+
+            for (let i = 1; i <= settings.groupCount; i++) {
+                const gData = groups[i] || { master: '', membersData: {}, customName: '' };
+                const masterName = gData.master;
+                const mData = gData.membersData[masterName] || { type: 'pen', data: '', color: '#ffffff' };
+                
+                const grade = App.gradeAnswer(currentAns, mData.data);
+                
+                let boardContent = '';
+                if (mData.type === 'text') {
+                    boardContent = `<div class="board-text-overlay" style="font-size:${tFontSize}px; color:${mData.color || '#fff'};">${mData.data}</div>`;
+                } else if (mData.data) {
+                    boardContent = `<img src="${mData.data}" style="width:100%; height:100%; object-fit:contain;">`;
+                }
+
+                const customNameDisplay = gData.customName ? ` <span style="color:#e67e22">[${gData.customName}]</span>` : '';
+
+                cctvContainer.innerHTML += `
+                    <div class="cctv-card">
+                        <h3 style="margin:5px 0;">${i} 모둠${customNameDisplay} <span style="font-size:1.1rem; color:#d32f2f;">(방장: ${masterName || '없음'})</span></h3>
+                        <div class="cctv-board">${boardContent}</div>
+                        <div class="correct-rate" style="color: ${grade.rate === 100 ? '#27ae60' : '#d32f2f'}">
+                            ${currentAns ? `정답률: ${grade.rate}% (${grade.correctCount}/${grade.totalCount})` : '정답 미입력 (자동채점 대기)'}
+                        </div>
+                        <div style="font-size:1.2rem; font-weight:bold; margin-top:5px; word-break: break-all; overflow-wrap: break-word;">${grade.html}</div>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
