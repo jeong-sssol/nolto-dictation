@@ -1,4 +1,4 @@
-// 1. Firebase 설정 (선생님의 고유 열쇠)
+// 1. Firebase 설정
 const firebaseConfig = {
     apiKey: "AIzaSyBC1SxIW-8_RuDojcEv8vXpRqs0qEVGrEA",
     authDomain: "nolto-dictation.firebaseapp.com",
@@ -12,21 +12,25 @@ const firebaseConfig = {
 // 2. Firebase 초기화 및 연결
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-const dbRef = db.ref('nolto_data_v9'); // 데이터베이스 저장 공간 이름
+const dbRef = db.ref('nolto_data_v9');
 
-// 3. App 객체 (localStorage에서 Firebase 실시간 통신으로 완벽 대체)
+// 3. App 객체
 const App = {
     localData: null,
     
     init: () => {
-        // Firebase 실시간 동기화 감지 (데이터가 변할 때마다 즉시 작동!)
         dbRef.on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
+                // 🔥 Firebase가 빈 데이터를 삭제하는 것에 대비한 완벽 방어 코드
+                if (!data.groups) data.groups = {};
+                if (!data.settings) data.settings = {};
+                if (!data.settings.passwords) data.settings.passwords = {};
+                if (!data.settings.answers) data.settings.answers = {};
+                
                 App.localData = data;
                 window.dispatchEvent(new Event('app-sync')); 
                 
-                // (방어 코드) 최초 접속 시 학생 화면의 모둠 개수를 동기화
                 const groupSelect = document.getElementById('group-select');
                 if (groupSelect && groupSelect.options.length !== data.settings.groupCount) {
                     groupSelect.innerHTML = '';
@@ -55,19 +59,27 @@ const App = {
                 currentEffect: null, 
                 clearTrigger: 0 
             },
-            groups: {}
+            groups: {
+                // Firebase가 groups를 통째로 지우는 것을 막기 위한 더미 데이터
+                "0": { dummy: true }
+            }
         };
-        dbRef.set(defaultData); // Firebase 서버에 초기화 데이터 전송
+        dbRef.set(defaultData);
     },
 
-    // 데이터를 가져오는 중 에러가 나지 않도록 뼈대를 유지
-    getData: () => App.localData || {
-        settings: { adminPassword: '1234', groupCount: 6, passwords: {}, totalRounds: 3, answers: {}, currentRound: 1, teacherFontSize: 24, isLocked: false, timerEnd: null, currentEffect: null, clearTrigger: 0 },
-        groups: {}
+    getData: () => {
+        let data = App.localData;
+        if (!data) {
+            data = { settings: { groupCount: 6, passwords: {}, answers: {} }, groups: {} };
+        }
+        if (!data.groups) data.groups = {};
+        if (!data.settings.passwords) data.settings.passwords = {};
+        if (!data.settings.answers) data.settings.answers = {};
+        return data;
     },
 
     saveData: (data) => {
-        dbRef.set(data); // 로컬 저장소 대신 Firebase 서버에 저장
+        dbRef.set(data);
     },
 
     getSettings: () => App.getData().settings,
@@ -131,6 +143,8 @@ const App = {
         if (!data.groups[groupId]) {
             data.groups[groupId] = { master: '', customName: '', members: [], membersData: {} };
         }
+        if (!data.groups[groupId].members) data.groups[groupId].members = [];
+        if (!data.groups[groupId].membersData) data.groups[groupId].membersData = {};
         return data.groups[groupId];
     },
     
@@ -139,6 +153,9 @@ const App = {
         if (!data.groups[groupId]) {
             data.groups[groupId] = { master: name, customName: '', members: [], membersData: {} };
         }
+        if (!data.groups[groupId].members) data.groups[groupId].members = [];
+        if (!data.groups[groupId].membersData) data.groups[groupId].membersData = {};
+
         if (!data.groups[groupId].members.includes(name)) {
             data.groups[groupId].members.push(name);
         }
@@ -153,8 +170,10 @@ const App = {
 
     setMaster: (groupId, newMaster) => {
         const data = App.getData();
-        data.groups[groupId].master = newMaster;
-        App.saveData(data);
+        if(data.groups[groupId]) {
+            data.groups[groupId].master = newMaster;
+            App.saveData(data);
+        }
     },
 
     setGroupName: (groupId, customName) => {
@@ -167,6 +186,8 @@ const App = {
 
     updateMemberBoard: (groupId, memberName, boardObj) => {
         const data = App.getData();
+        if(!data.groups[groupId]) return;
+        if(!data.groups[groupId].membersData) data.groups[groupId].membersData = {};
         if(!data.groups[groupId].membersData[memberName]) {
             data.groups[groupId].membersData[memberName] = {};
         }
@@ -177,13 +198,19 @@ const App = {
         App.saveData(data);
     },
 
-    getAllGroups: () => App.getData().groups,
+    getAllGroups: () => {
+        const data = App.getData();
+        return data.groups || {};
+    },
     
     clearAllBoards: () => {
         const data = App.getData();
+        if(!data.groups) return;
         for (let key in data.groups) {
-            for (let member in data.groups[key].membersData) {
-                data.groups[key].membersData[member].data = '';
+            if(data.groups[key].membersData) {
+                for (let member in data.groups[key].membersData) {
+                    data.groups[key].membersData[member].data = '';
+                }
             }
         }
         App.saveData(data);
