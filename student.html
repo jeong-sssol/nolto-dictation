@@ -13,8 +13,23 @@
             <h2>학생 입장</h2>
             <select id="group-select"></select>
             <input type="password" id="group-pw" placeholder="모둠 비밀번호">
-            <input type="text" id="student-name" placeholder="이름">
+            <input type="text" id="student-name" placeholder="이름/별명">
             <button onclick="joinGroup()">입장하기</button>
+        </div>
+    </div>
+
+    <!-- 🌟 힌트 주문 모달 -->
+    <div id="hint-modal" class="modal hidden">
+        <div class="modal-content" style="width: 500px;">
+            <h2 style="color: #1976d2;">🛎️ 힌트 요청</h2>
+            <p id="hint-status-msg" style="font-weight:bold; color:#e74c3c;"></p>
+            <div style="display:flex; flex-direction:column; gap:10px; margin-top:20px;">
+                <button id="btn-hint-1" onclick="submitHintOrder('전체 띄어쓰기')" style="background:#27ae60;">전체 띄어쓰기 확인</button>
+                <button id="btn-hint-2" onclick="submitHintOrder('한 글자 보기')" style="background:#8e44ad;">원하는 한 글자 오픈</button>
+                <button id="btn-hint-3" onclick="submitHintOrder('초성 2개 보기')" style="background:#f39c12;">무작위 초성 2개 오픈</button>
+                <button id="btn-hint-4" onclick="submitHintOrder('3초 보기')" style="background:#e74c3c;">3초간 전체 보기</button>
+            </div>
+            <button onclick="closeHintModal()" style="margin-top:20px; background:#95a5a6;">취소</button>
         </div>
     </div>
 
@@ -25,6 +40,7 @@
                 <button id="btn-edit-name" class="hidden" onclick="editGroupName()" style="background:#f1c40f; border:none; padding:5px 8px; border-radius:5px; cursor:pointer; font-size:1rem;">✏️ 이름 변경</button>
                 <span id="my-name-display" style="font-size:1.1rem; color:#555;"></span>
                 <span id="master-badge" class="badge hidden">👑 방장(제출자)</span>
+                <button id="btn-hint" class="hidden" onclick="openHintModal()" style="background:#1abc9c; color:white; font-weight:bold; margin-left:10px; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size:1.1rem;">🛎️ 힌트 요청</button>
             </div>
 
             <div class="header-center" style="display: flex; align-items: center; justify-content: center; gap: 20px; white-space: nowrap; flex: 1;">
@@ -36,7 +52,7 @@
                 <div class="view-control" style="display:flex; align-items:center;">
                     <label style="margin-right:5px; font-size: 1.1rem;">👀 보기:</label>
                     <select id="view-select" class="wide-dropdown" onchange="changeView()" style="min-width:130px;">
-                        <option value="me">내 받쓰판 작성하기</option>
+                        <option value="me">내 화면 작성하기</option>
                     </select>
                 </div>
 
@@ -48,13 +64,15 @@
             </div>
         </header>
 
-        <div class="toolbar" style="min-width: 1000px; margin: 0 auto;">
-            <button id="btn-pen" class="active" onclick="setMode('pen')">🖊️ 펜</button>
-            <button id="btn-eraser" onclick="setMode('eraser')">🧽 지우개</button>
-            <button id="btn-text" onclick="setMode('text')">⌨️ 텍스트(T)</button>
-            <button onclick="clearBoard()">🗑️ 받쓰판 지우기</button>
+        <div class="toolbar" style="min-width: 1000px; margin: 0 auto; display: flex; justify-content: center;">
+            <div style="display: flex; gap:10px;">
+                <button id="btn-pen" class="active" onclick="setMode('pen')">🖊️ 펜</button>
+                <button id="btn-eraser" onclick="setMode('eraser')">🧽 지우개</button>
+                <button id="btn-text" onclick="setMode('text')">⌨️ 텍스트(T)</button>
+                <button onclick="clearBoard()">🗑️ 받쓰판 지우기</button>
+            </div>
             
-            <div class="tool-settings">
+            <div class="tool-settings" style="margin-left:20px;">
                 <label>색상: <input type="color" id="color-picker" value="#ffffff"></label>
                 <label>크기: <input type="range" id="size-picker" min="2" max="50" value="5"></label>
             </div>
@@ -66,7 +84,7 @@
             
             <img id="shared-board" class="hidden" src="" alt="공유화면">
             <div id="shared-text" class="hidden board-text-overlay"></div>
-            <div id="read-only-msg" class="hidden" style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.7); color:white; padding:10px; border-radius:5px; z-index:100;">👀 관전 모드(읽기 전용)</div>
+            <div id="read-only-msg" class="hidden" style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.7); color:white; padding:10px; border-radius:5px; z-index:100;">👀 관전 모드 (읽기 전용)</div>
             
             <div id="lock-overlay" class="lock-overlay hidden">
                 <div class="lock-message">
@@ -77,12 +95,10 @@
         </div>
     </div>
 
-    <!-- 이벤트 오버레이 -->
     <div id="effect-overlay" class="effect-overlay hidden">
         <div id="effect-content" class="effect-content"></div>
     </div>
 
-    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="js/app.js"></script>
@@ -150,6 +166,57 @@
             }
         }
 
+        function openHintModal() {
+            const settings = App.getSettings();
+            const groupData = App.getGroup(myGroup);
+            const limit = settings.hintLimit || 1;
+            const usedCount = groupData.hintCount || 0;
+            const usedHints = groupData.usedHints || [];
+            
+            document.getElementById('hint-status-msg').innerText = `현재 힌트 사용 현황: ${usedCount} / ${limit}회`;
+            
+            const hintTypes = ['전체 띄어쓰기', '한 글자 보기', '초성 2개 보기', '3초 보기'];
+            hintTypes.forEach((type, index) => {
+                const btn = document.getElementById(`btn-hint-${index+1}`);
+                if(usedHints.includes(type)) {
+                    btn.style.opacity = '0.5';
+                    btn.style.cursor = 'not-allowed';
+                    btn.innerText = `${type} (사용완료)`;
+                } else {
+                    btn.style.opacity = '1';
+                    btn.style.cursor = 'pointer';
+                    btn.innerText = type;
+                }
+            });
+            
+            document.getElementById('hint-modal').classList.remove('hidden');
+        }
+
+        function closeHintModal() {
+            document.getElementById('hint-modal').classList.add('hidden');
+        }
+
+        function submitHintOrder(hintType) {
+            const settings = App.getSettings();
+            const groupData = App.getGroup(myGroup);
+            const limit = settings.hintLimit || 1;
+            const usedCount = groupData.hintCount || 0;
+            const usedHints = groupData.usedHints || [];
+
+            if(usedCount >= limit) {
+                alert(`❌ 이미 이번 라운드의 힌트 요청 횟수(${limit}회)를 모두 사용했습니다.`);
+                return;
+            }
+            if(usedHints.includes(hintType)) {
+                alert(`❌ [${hintType}] 힌트는 이미 사용하셨습니다. 다른 종류를 선택해 주세요.`);
+                return;
+            }
+
+            App.orderHint(myGroup, hintType);
+            alert(`✅ [${hintType}] 힌트 요청이 선생님께 전송되었습니다!`);
+            closeHintModal();
+        }
+
         function setMode(newMode) {
             mode = newMode;
             document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
@@ -172,7 +239,6 @@
             if(isDrawing) { isDrawing = false; ctx.beginPath(); sendRealTimeData(); }
         });
         textBoard.addEventListener('keyup', sendRealTimeData);
-        // 터치 지원 추가
         canvas.addEventListener('touchstart', (e) => { 
             if(viewTarget === 'me' && !isBoardLocked()) { isDrawing = true; draw(e.touches[0]); }
         }, {passive:true});
@@ -264,11 +330,13 @@
             if (isMaster) {
                 document.getElementById('master-badge').classList.remove('hidden');
                 document.getElementById('btn-edit-name').classList.remove('hidden');
+                document.getElementById('btn-hint').classList.remove('hidden'); 
                 memberSelect.classList.remove('hidden');
                 document.getElementById('btn-transfer').classList.remove('hidden');
             } else {
                 document.getElementById('master-badge').classList.add('hidden');
                 document.getElementById('btn-edit-name').classList.add('hidden');
+                document.getElementById('btn-hint').classList.add('hidden'); 
                 memberSelect.classList.add('hidden');
                 document.getElementById('btn-transfer').classList.add('hidden');
             }
@@ -363,7 +431,6 @@
                     sharedText.style.fontSize = (targetData.size * 2 + 30) + 'px';
                 } else {
                     sharedText.classList.add('hidden');
-                    // 🔥 엑스박스 방지 코드: 데이터가 있을 때만 img 보이기
                     if (targetData.data) {
                         sharedImg.src = targetData.data;
                         sharedImg.classList.remove('hidden');
@@ -403,9 +470,9 @@
             effect.targets.forEach(gId => {
                 const gData = groupsData[gId];
                 if(gData && gData.customName) {
-                    targetNames.push(`${gId}모둠[${gData.customName}]`);
+                    targetNames.push(`${gId}조[${gData.customName}]`);
                 } else {
-                    targetNames.push(`${gId}모둠`);
+                    targetNames.push(`${gId}조`);
                 }
             });
 
@@ -433,6 +500,8 @@
                 p.style.animationDelay = (Math.random() * 1) + 's';
                 p.style.fontSize = (Math.random() * 2 + 1.5) + 'rem';
                 document.body.appendChild(p);
+                
+                setTimeout(() => p.remove(), 4500); 
             }
         }
     </script>
