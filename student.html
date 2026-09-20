@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>학생 모드</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=29">
 </head>
 <body>
     <div id="login-modal" class="modal active">
@@ -18,18 +18,21 @@
         </div>
     </div>
 
-    <!-- 🌟 힌트 주문 모달 -->
+    <!-- 🌟 학생 힌트 주문창 (버튼 일체형) -->
     <div id="hint-modal" class="modal hidden">
         <div class="modal-content" style="width: 500px;">
-            <h2 style="color: #1976d2;">🛎️ 힌트 요청</h2>
-            <p id="hint-status-msg" style="font-weight:bold; color:#e74c3c;"></p>
-            <div style="display:flex; flex-direction:column; gap:10px; margin-top:20px;">
-                <button id="btn-hint-1" onclick="submitHintOrder('전체 띄어쓰기')" style="background:#27ae60;">전체 띄어쓰기 확인</button>
-                <button id="btn-hint-2" onclick="submitHintOrder('한 글자 보기')" style="background:#8e44ad;">원하는 한 글자 오픈</button>
-                <button id="btn-hint-3" onclick="submitHintOrder('초성 2개 보기')" style="background:#f39c12;">무작위 초성 2개 오픈</button>
-                <button id="btn-hint-4" onclick="submitHintOrder('3초 보기')" style="background:#e74c3c;">3초간 전체 보기</button>
+            <h2 style="color: #1976d2;">🛎️ 힌트 요청하기</h2>
+            <p id="hint-status-msg" style="font-weight:bold; color:#e74c3c; font-size:1.2rem;"></p>
+            
+            <div id="hint-options-container" style="display:flex; flex-direction:column; gap:10px; margin-top:20px;">
+                <button id="btn-hint-전체 띄어쓰기" onclick="handleHintClick('전체 띄어쓰기')" style="background:#27ae60;">전체 띄어쓰기</button>
+                <button id="btn-hint-한 글자 보기" onclick="handleHintClick('한 글자 보기')" style="background:#8e44ad;">한 글자 보기</button>
+                <button id="btn-hint-초성 2개 보기" onclick="handleHintClick('초성 2개 보기')" style="background:#f39c12;">초성 2개 보기</button>
+                <button id="btn-hint-3초 보기" onclick="handleHintClick('3초 보기')" style="background:#e74c3c;">3초 보기</button>
+                <button id="btn-hint-오답수 알려주기" onclick="handleHintClick('오답수 알려주기')" style="background:#34495e;">오답수 알려주기</button>
             </div>
-            <button onclick="closeHintModal()" style="margin-top:20px; background:#95a5a6;">취소</button>
+            
+            <button onclick="closeHintModal()" style="margin-top:20px; background:#95a5a6;">창 닫기</button>
         </div>
     </div>
 
@@ -52,14 +55,14 @@
                 <div class="view-control" style="display:flex; align-items:center;">
                     <label style="margin-right:5px; font-size: 1.1rem;">👀 보기:</label>
                     <select id="view-select" class="wide-dropdown" onchange="changeView()" style="min-width:130px;">
-                        <option value="me">내 화면 작성하기</option>
+                        <option value="me">받쓰판 작성하기</option>
                     </select>
                 </div>
 
-                <div class="master-control" style="display:flex; align-items:center; border-left: 2px solid #ccc; padding-left: 15px;">
+                <div id="transfer-panel" class="master-control hidden" style="display:flex; align-items:center; border-left: 2px solid #ccc; padding-left: 15px;">
                     <label style="margin-right:5px; font-size: 1.1rem;">👑 권한:</label>
-                    <select id="member-list" class="wide-dropdown hidden" style="min-width:100px;"></select>
-                    <button id="btn-transfer" class="hidden" onclick="transferMaster()" style="margin-left:5px; background:#3498db; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size: 1.1rem;">넘기기</button>
+                    <select id="member-list" class="wide-dropdown" style="min-width:100px;"></select>
+                    <button onclick="transferMaster()" style="margin-left:5px; background:#3498db; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-size: 1.1rem;">넘기기</button>
                 </div>
             </div>
         </header>
@@ -95,38 +98,38 @@
         </div>
     </div>
 
-    <div id="effect-overlay" class="effect-overlay hidden">
-        <div id="effect-content" class="effect-content"></div>
-    </div>
+    <div id="effect-overlay" class="effect-overlay hidden"><div id="effect-content" class="effect-content"></div></div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="js/app.js"></script>
+    <script src="js/app.js?v=29"></script>
 
     <script>
         let myGroup = '', myName = '', isMaster = false, isDrawing = false, mode = 'pen';
         let viewTarget = 'me'; 
         let timerInterval = null;
-        let lastEffectTs = 0;
-        let lastClearTs = 0;
+        let lastEffectTs = 0; let lastClearTs = 0;
+        let myPendingHintReqId = null; 
+
+        const defaultHintColors = {
+            '전체 띄어쓰기': '#27ae60', '한 글자 보기': '#8e44ad', 
+            '초성 2개 보기': '#f39c12', '3초 보기': '#e74c3c', '오답수 알려주기': '#34495e'
+        };
 
         const canvas = document.getElementById('drawing-board');
         const ctx = canvas.getContext('2d');
         const textBoard = document.getElementById('text-board');
         
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
         document.getElementById('color-picker').addEventListener('input', updateToolSettings);
         document.getElementById('size-picker').addEventListener('input', updateToolSettings);
         
         function updateToolSettings() {
-            const color = document.getElementById('color-picker').value;
-            const size = document.getElementById('size-picker').value;
-            ctx.strokeStyle = color;
-            ctx.lineWidth = size;
-            textBoard.style.color = color;
-            textBoard.style.fontSize = (size * 2 + 30) + 'px';
+            ctx.strokeStyle = document.getElementById('color-picker').value;
+            ctx.lineWidth = document.getElementById('size-picker').value;
+            textBoard.style.color = document.getElementById('color-picker').value;
+            textBoard.style.fontSize = (document.getElementById('size-picker').value * 2 + 30) + 'px';
             sendRealTimeData();
         }
 
@@ -137,8 +140,6 @@
                 select.innerHTML += `<option value="${i}">${i} 모둠</option>`;
             }
             updateToolSettings();
-            if(settings.currentEffect) lastEffectTs = settings.currentEffect.ts;
-            if(settings.clearTrigger) lastClearTs = settings.clearTrigger;
         };
 
         function joinGroup() {
@@ -155,66 +156,98 @@
             App.joinMember(myGroup, myName);
             document.getElementById('login-modal').classList.add('hidden');
             document.getElementById('student-main').classList.remove('hidden');
-            
             syncUI();
         }
 
         function editGroupName() {
             const newName = prompt("우리 모둠의 새 이름을 정해주세요!");
-            if (newName !== null && newName.trim() !== "") {
-                App.setGroupName(myGroup, newName.trim());
-            }
+            if (newName !== null && newName.trim() !== "") App.setGroupName(myGroup, newName.trim());
         }
 
         function openHintModal() {
             const settings = App.getSettings();
             const groupData = App.getGroup(myGroup);
             const limit = settings.hintLimit || 1;
-            const usedCount = groupData.hintCount || 0;
             const usedHints = groupData.usedHints || [];
+            const allReqs = App.getHintRequests();
             
-            document.getElementById('hint-status-msg').innerText = `현재 힌트 사용 현황: ${usedCount} / ${limit}회`;
+            let pendingCount = 0;
+            let myPendingReqs = {};
+
+            // 내 조의 대기중인 힌트 파악
+            for (let reqId in allReqs) {
+                if (allReqs[reqId].group == myGroup && allReqs[reqId].status === 'pending') {
+                    myPendingReqs[allReqs[reqId].type] = reqId;
+                    pendingCount++;
+                }
+            }
             
-            const hintTypes = ['전체 띄어쓰기', '한 글자 보기', '초성 2개 보기', '3초 보기'];
-            hintTypes.forEach((type, index) => {
-                const btn = document.getElementById(`btn-hint-${index+1}`);
-                if(usedHints.includes(type)) {
-                    btn.style.opacity = '0.5';
-                    btn.style.cursor = 'not-allowed';
+            const totalUsed = (groupData.hintCount || 0) + pendingCount;
+            document.getElementById('hint-status-msg').innerText = `현재 힌트 사용 현황: ${totalUsed} / ${limit}회 (대기 포함)`;
+            
+            const hintTypes = ['전체 띄어쓰기', '한 글자 보기', '초성 2개 보기', '3초 보기', '오답수 알려주기'];
+            hintTypes.forEach((type) => {
+                const btn = document.getElementById(`btn-hint-${type}`);
+                
+                if (myPendingReqs[type]) {
+                    // 현재 대기 중
+                    btn.style.opacity = '1'; 
+                    btn.style.background = '#c0392b'; 
+                    btn.innerText = `⏳ ${type} 대기 중 (클릭 시 취소)`;
+                    btn.onclick = () => { cancelMyHint(myPendingReqs[type]); };
+                } else if(usedHints.includes(type)) {
+                    // 이미 사용함
+                    btn.style.opacity = '0.5'; 
+                    btn.style.background = defaultHintColors[type];
                     btn.innerText = `${type} (사용완료)`;
+                    btn.onclick = () => { alert("이미 사용한 힌트입니다."); };
                 } else {
-                    btn.style.opacity = '1';
-                    btn.style.cursor = 'pointer';
+                    // 선택 가능
+                    btn.style.opacity = '1'; 
+                    btn.style.background = defaultHintColors[type];
                     btn.innerText = type;
+                    btn.onclick = () => { submitNewHint(type, totalUsed, limit); };
                 }
             });
-            
+
             document.getElementById('hint-modal').classList.remove('hidden');
         }
 
-        function closeHintModal() {
-            document.getElementById('hint-modal').classList.add('hidden');
+        function closeHintModal() { document.getElementById('hint-modal').classList.add('hidden'); }
+
+        function submitNewHint(hintType, totalUsed, limit) {
+            if (totalUsed >= limit) {
+                return alert(`❌ 배정된 힌트 횟수(${limit}회)를 모두 사용했습니다.\n(선생님이 추가 기회를 주시면 쓸 수 있습니다!)`);
+            }
+            
+            let param = '';
+            if (hintType === '한 글자 보기') {
+                param = prompt("몇 번 글자를 보시겠습니까? (숫자 1개만 입력)");
+                if (!param) return alert("주문이 취소되었습니다.");
+                param = param.trim();
+                if (!/^\d+$/.test(param)) {
+                    return alert("❌ 띄어쓰기나 기호 없이 숫자 딱 하나만 입력해주세요! (예: 5)");
+                }
+            } else if (hintType === '초성 2개 보기') {
+                param = prompt("초성을 확인할 두 글자의 번호를 쉼표로 구분하여 입력하세요.\n(예: 3, 5)");
+                if (!param) return alert("입력이 취소되었습니다.");
+                let parts = param.split(',').map(s => s.trim()).filter(s => s !== '');
+                if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) {
+                    return alert("❌ 쉼표(,)를 기준으로 숫자 딱 두 개만 입력해주세요! (예: 3, 5)");
+                }
+            }
+
+            App.orderHint(myGroup, hintType, param);
+            alert(`✅ [${hintType}] 힌트 요청이 선생님께 전송되었습니다!`);
+            openHintModal(); // 화면 갱신
         }
 
-        function submitHintOrder(hintType) {
-            const settings = App.getSettings();
-            const groupData = App.getGroup(myGroup);
-            const limit = settings.hintLimit || 1;
-            const usedCount = groupData.hintCount || 0;
-            const usedHints = groupData.usedHints || [];
-
-            if(usedCount >= limit) {
-                alert(`❌ 이미 이번 라운드의 힌트 요청 횟수(${limit}회)를 모두 사용했습니다.`);
-                return;
+        function cancelMyHint(reqId) {
+            if(confirm("이 힌트 요청을 취소하시겠습니까?\n차감된 횟수가 복구됩니다.")) {
+                App.cancelHint(reqId);
+                alert("취소되었습니다.");
+                openHintModal();
             }
-            if(usedHints.includes(hintType)) {
-                alert(`❌ [${hintType}] 힌트는 이미 사용하셨습니다. 다른 종류를 선택해 주세요.`);
-                return;
-            }
-
-            App.orderHint(myGroup, hintType);
-            alert(`✅ [${hintType}] 힌트 요청이 선생님께 전송되었습니다!`);
-            closeHintModal();
         }
 
         function setMode(newMode) {
@@ -223,11 +256,9 @@
             document.getElementById(`btn-${mode}`).classList.add('active');
             
             if (mode === 'text') {
-                canvas.style.pointerEvents = 'none';
-                textBoard.classList.remove('hidden');
+                canvas.style.pointerEvents = 'none'; textBoard.classList.remove('hidden');
             } else {
-                canvas.style.pointerEvents = 'auto';
-                textBoard.classList.add('hidden');
+                canvas.style.pointerEvents = 'auto'; textBoard.classList.add('hidden');
                 ctx.globalCompositeOperation = (mode === 'eraser') ? 'destination-out' : 'source-over';
             }
             sendRealTimeData();
@@ -235,17 +266,11 @@
 
         canvas.addEventListener('mousedown', (e) => { if(viewTarget === 'me' && !isBoardLocked()) { isDrawing = true; draw(e); } });
         canvas.addEventListener('mousemove', draw);
-        window.addEventListener('mouseup', () => { 
-            if(isDrawing) { isDrawing = false; ctx.beginPath(); sendRealTimeData(); }
-        });
+        window.addEventListener('mouseup', () => { if(isDrawing) { isDrawing = false; ctx.beginPath(); sendRealTimeData(); } });
         textBoard.addEventListener('keyup', sendRealTimeData);
-        canvas.addEventListener('touchstart', (e) => { 
-            if(viewTarget === 'me' && !isBoardLocked()) { isDrawing = true; draw(e.touches[0]); }
-        }, {passive:true});
+        canvas.addEventListener('touchstart', (e) => { if(viewTarget === 'me' && !isBoardLocked()) { isDrawing = true; draw(e.touches[0]); } }, {passive:true});
         canvas.addEventListener('touchmove', (e) => { draw(e.touches[0]); }, {passive:true});
-        window.addEventListener('touchend', () => { 
-            if(isDrawing) { isDrawing = false; ctx.beginPath(); sendRealTimeData(); }
-        });
+        window.addEventListener('touchend', () => { if(isDrawing) { isDrawing = false; ctx.beginPath(); sendRealTimeData(); } });
 
         function draw(e) {
             if (!isDrawing || viewTarget !== 'me' || isBoardLocked()) return;
@@ -255,15 +280,12 @@
             const x = (e.clientX - rect.left) * scaleX;
             const y = (e.clientY - rect.top) * scaleY;
             
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(x, y);
+            ctx.lineTo(x, y); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x, y);
         }
 
         function clearBoard() {
-            if (viewTarget !== 'me') { alert("내 받쓰판일 때만 지울 수 있습니다."); return; }
-            if (isBoardLocked()) { alert("현재 작성 시간이 종료되었거나 잠금 상태입니다."); return; }
+            if (viewTarget !== 'me') return alert("내 받쓰판만 지울 수 있습니다.");
+            if (isBoardLocked()) return alert("현재 작성 시간이 종료되었거나 잠금 상태입니다.");
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             textBoard.value = '';
             sendRealTimeData();
@@ -272,24 +294,16 @@
         function sendRealTimeData() {
             if (viewTarget !== 'me' || isBoardLocked()) return;
             const data = (mode === 'text') ? textBoard.value : canvas.toDataURL('image/png');
-            App.updateMemberBoard(myGroup, myName, { 
-                type: mode, 
-                data: data, 
-                color: document.getElementById('color-picker').value, 
-                size: document.getElementById('size-picker').value 
-            });
+            App.updateMemberBoard(myGroup, myName, { type: mode, data: data, color: document.getElementById('color-picker').value, size: document.getElementById('size-picker').value });
         }
 
-        function changeView() {
-            viewTarget = document.getElementById('view-select').value;
-            renderView();
-        }
+        function changeView() { viewTarget = document.getElementById('view-select').value; renderView(); }
 
         function transferMaster() {
             const target = document.getElementById('member-list').value;
             if (target && target !== myName) {
                 App.setMaster(myGroup, target);
-                alert(`${target} 학생에게 권한을 넘겼습니다.`);
+                alert(`✅ [${target}] 학생에게 방장 권한을 넘겼습니다.`);
             }
         }
 
@@ -304,95 +318,85 @@
             
             if (settings.clearTrigger && settings.clearTrigger > lastClearTs) {
                 lastClearTs = settings.clearTrigger;
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                textBoard.value = '';
+                ctx.clearRect(0, 0, canvas.width, canvas.height); textBoard.value = '';
+            }
+
+            if(myPendingHintReqId) {
+                const reqs = App.getHintRequests();
+                if(!reqs[myPendingHintReqId] || reqs[myPendingHintReqId].status !== 'pending') {
+                    myPendingHintReqId = null; 
+                    if(!document.getElementById('hint-modal').classList.contains('hidden')) openHintModal();
+                }
             }
             
             const customName = groupData.customName ? ` <span style="color:#e67e22">[${groupData.customName}]</span>` : '';
-            document.getElementById('group-title').innerHTML = `${myGroup}모둠${customName}`;
+            document.getElementById('group-title').innerHTML = `${myGroup}조${customName}`;
             document.getElementById('my-name-display').innerText = `${myName}`;
-
             document.getElementById('round-display').innerText = `🔥 ${settings.currentRound}라운드`;
 
-            const memberSelect = document.getElementById('member-list');
             const viewSelect = document.getElementById('view-select');
+            const memberSelect = document.getElementById('member-list');
             
-            let viewHtml = `<option value="me">👉 내 받쓰판 작성하기</option>`;
-            groupData.members.filter(m => m !== myName).forEach(m => {
-                const label = (m === groupData.master) ? `👑 ${m} (방장)` : `👀 ${m}`;
-                viewHtml += `<option value="${m}">${label}</option>`;
-            });
-            viewSelect.innerHTML = viewHtml;
-            viewSelect.value = viewTarget; 
+            let viewHtml = `<option value="me">👉 받쓰판 작성하기</option>`;
+            let memberHtml = '';
 
-            memberSelect.innerHTML = groupData.members.filter(m => m !== myName).map(m => `<option value="${m}">${m}</option>`).join('');
+            groupData.members.forEach(m => {
+                if(m !== myName) {
+                    viewHtml += `<option value="${m}">${(m === groupData.master) ? `👑 ${m} (방장)` : `👀 ${m}`}</option>`;
+                    memberHtml += `<option value="${m}">${m}</option>`;
+                }
+            });
+            viewSelect.innerHTML = viewHtml; viewSelect.value = viewTarget; 
+            memberSelect.innerHTML = memberHtml;
             
             if (isMaster) {
                 document.getElementById('master-badge').classList.remove('hidden');
                 document.getElementById('btn-edit-name').classList.remove('hidden');
                 document.getElementById('btn-hint').classList.remove('hidden'); 
-                memberSelect.classList.remove('hidden');
-                document.getElementById('btn-transfer').classList.remove('hidden');
+                document.getElementById('transfer-panel').classList.remove('hidden');
             } else {
                 document.getElementById('master-badge').classList.add('hidden');
                 document.getElementById('btn-edit-name').classList.add('hidden');
                 document.getElementById('btn-hint').classList.add('hidden'); 
-                memberSelect.classList.add('hidden');
-                document.getElementById('btn-transfer').classList.add('hidden');
+                document.getElementById('transfer-panel').classList.add('hidden');
             }
-
-            renderView();
-            manageTimerAndLock(settings);
-            checkEffects(settings);
+            renderView(); manageTimerAndLock(settings); checkEffects(settings);
         }
 
         function isBoardLocked() {
             const settings = App.getSettings();
             if (settings.isLocked) return true;
-            if (settings.timerEnd) {
-                return (settings.timerEnd - Date.now()) <= 0;
-            }
+            if (settings.timerEnd) return (settings.timerEnd - Date.now()) <= 0;
             return false;
         }
 
         function manageTimerAndLock(settings) {
-            clearInterval(timerInterval);
-            updateTimerDisplay();
-            if (settings.timerEnd) {
-                timerInterval = setInterval(updateTimerDisplay, 500);
-            }
+            clearInterval(timerInterval); updateTimerDisplay();
+            if (settings.timerEnd) timerInterval = setInterval(updateTimerDisplay, 500);
         }
 
         function updateTimerDisplay() {
             const settings = App.getSettings();
-            let timeText = "--:--";
-            let lockedByTimer = false;
+            let timeText = "--:--"; let lockedByTimer = false;
 
             if (settings.timerEnd) {
                 const left = Math.floor((settings.timerEnd - Date.now()) / 1000);
                 if (left <= 0) {
-                    timeText = "00:00";
-                    lockedByTimer = true;
-                    clearInterval(timerInterval);
+                    timeText = "00:00"; lockedByTimer = true; clearInterval(timerInterval);
+                    App.playAlarm();
                 } else {
-                    const m = String(Math.floor(left / 60)).padStart(2, '0');
-                    const s = String(left % 60).padStart(2, '0');
-                    timeText = `${m}:${s}`;
+                    timeText = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`;
                 }
             }
-            
             document.getElementById('timer-display').innerText = `⏱️ ${timeText}`;
 
             const lockOverlay = document.getElementById('lock-overlay');
             if (settings.isLocked || lockedByTimer) {
-                lockOverlay.classList.remove('hidden');
-                canvas.style.pointerEvents = 'none';
-                textBoard.disabled = true;
+                lockOverlay.classList.remove('hidden'); canvas.style.pointerEvents = 'none'; textBoard.disabled = true;
             } else {
                 lockOverlay.classList.add('hidden');
                 if (viewTarget === 'me') {
-                    canvas.style.pointerEvents = (mode === 'text') ? 'none' : 'auto';
-                    textBoard.disabled = false;
+                    canvas.style.pointerEvents = (mode === 'text') ? 'none' : 'auto'; textBoard.disabled = false;
                 }
             }
         }
@@ -405,56 +409,32 @@
             const readOnlyMsg = document.getElementById('read-only-msg');
 
             if (viewTarget === 'me') {
-                canvas.style.opacity = '1';
-                textBoard.style.opacity = '1';
-                canvas.style.pointerEvents = (mode === 'text') ? 'none' : 'auto';
-                textBoard.disabled = false;
-                
-                sharedImg.classList.add('hidden');
-                sharedText.classList.add('hidden');
-                readOnlyMsg.classList.add('hidden');
+                canvas.style.opacity = '1'; textBoard.style.opacity = '1';
+                canvas.style.pointerEvents = (mode === 'text') ? 'none' : 'auto'; textBoard.disabled = false;
+                sharedImg.classList.add('hidden'); sharedText.classList.add('hidden'); readOnlyMsg.classList.add('hidden');
             } else {
-                canvas.style.opacity = '0';
-                textBoard.style.opacity = '0';
-                canvas.style.pointerEvents = 'none';
-                textBoard.disabled = true;
-                
+                canvas.style.opacity = '0'; textBoard.style.opacity = '0';
+                canvas.style.pointerEvents = 'none'; textBoard.disabled = true;
                 readOnlyMsg.classList.remove('hidden');
 
                 const targetData = groupData.membersData[viewTarget] || { type: 'pen', data: '', color: '#fff', size: 5 };
-                
                 if (targetData.type === 'text') {
-                    sharedImg.classList.add('hidden');
-                    sharedText.classList.remove('hidden');
-                    sharedText.innerText = targetData.data;
-                    sharedText.style.color = targetData.color || '#ffffff';
+                    sharedImg.classList.add('hidden'); sharedText.classList.remove('hidden');
+                    sharedText.innerText = targetData.data; sharedText.style.color = targetData.color || '#ffffff';
                     sharedText.style.fontSize = (targetData.size * 2 + 30) + 'px';
                 } else {
                     sharedText.classList.add('hidden');
-                    if (targetData.data) {
-                        sharedImg.src = targetData.data;
-                        sharedImg.classList.remove('hidden');
-                    } else {
-                        sharedImg.src = '';
-                        sharedImg.classList.add('hidden');
-                    }
+                    if (targetData.data) { sharedImg.src = targetData.data; sharedImg.classList.remove('hidden'); }
+                    else { sharedImg.src = ''; sharedImg.classList.add('hidden'); }
                 }
             }
-            updateTimerDisplay();
         }
 
         function checkEffects(settings) {
             if (settings.currentEffect && settings.currentEffect.ts > lastEffectTs) {
                 lastEffectTs = settings.currentEffect.ts;
-                const effect = settings.currentEffect;
-                
-                if (effect.type === 'boom') {
-                    if (effect.targets.includes(parseInt(myGroup))) {
-                        playEffect(effect);
-                    }
-                } else {
-                    playEffect(effect);
-                }
+                if (settings.currentEffect.type === 'boom' && !settings.currentEffect.targets.includes(parseInt(myGroup))) return;
+                playEffect(settings.currentEffect);
             }
         }
 
@@ -462,45 +442,31 @@
             const overlay = document.getElementById('effect-overlay');
             const content = document.getElementById('effect-content');
             overlay.classList.remove('hidden');
-            
             document.querySelectorAll('.particle').forEach(p => p.remove());
 
             const groupsData = App.getAllGroups();
-            let targetNames = [];
-            effect.targets.forEach(gId => {
-                const gData = groupsData[gId];
-                if(gData && gData.customName) {
-                    targetNames.push(`${gId}조[${gData.customName}]`);
-                } else {
-                    targetNames.push(`${gId}조`);
-                }
-            });
+            let targetNames = effect.targets.map(gId => groupsData[gId] && groupsData[gId].customName ? `${gId}조[${gData.customName}]` : `${gId}조`);
 
             if (effect.type === 'boom') {
                 content.innerHTML = `<div class="boom-text">💥 땡! 오답!<br><span style="color:#f1c40f;">${targetNames.join(', ')}</span></div>`;
                 createParticles(['🍿', '💣', '💨'], 50);
             } else if (effect.type === 'oneshot') {
-                content.innerHTML = `<div class="oneshot-text">📸 원샷!<br><span style="color:#fff; text-shadow: 2px 2px #d32f2f;">${targetNames.join('<br>')}</span></div>`;
+                content.innerHTML = `<div class="oneshot-text">📸 원샷 축하합니다!<br><span style="color:#fff; text-shadow: 2px 2px #d32f2f;">${targetNames.join('<br>')}</span></div>`;
                 createParticles(['🎉', '🎊', '✨', '🥇'], 80);
             }
 
-            setTimeout(() => {
-                overlay.classList.add('hidden');
-                content.innerHTML = '';
-            }, 5000);
+            setTimeout(() => { overlay.classList.add('hidden'); content.innerHTML = ''; }, 5000);
         }
 
         function createParticles(emojis, count) {
             for(let i=0; i<count; i++) {
-                const p = document.createElement('div');
-                p.className = 'particle';
+                const p = document.createElement('div'); p.className = 'particle';
                 p.innerText = emojis[Math.floor(Math.random() * emojis.length)];
                 p.style.left = Math.random() * 100 + 'vw';
                 p.style.animationDuration = (Math.random() * 2 + 2) + 's';
                 p.style.animationDelay = (Math.random() * 1) + 's';
                 p.style.fontSize = (Math.random() * 2 + 1.5) + 'rem';
                 document.body.appendChild(p);
-                
                 setTimeout(() => p.remove(), 4500); 
             }
         }

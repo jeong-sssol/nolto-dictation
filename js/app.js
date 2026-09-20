@@ -1,4 +1,3 @@
-
 // 1. Firebase 설정
 const firebaseConfig = {
     apiKey: "AIzaSyBC1SxIW-8_RuDojcEv8vXpRqs0qEVGrEA",
@@ -26,6 +25,7 @@ const App = {
                 if (!data.settings) data.settings = {};
                 if (!data.settings.passwords) data.settings.passwords = {};
                 if (!data.settings.answers) data.settings.answers = {};
+                if (!data.settings.timings) data.settings.timings = {};
                 if (!data.hintRequests) data.hintRequests = {}; 
                 
                 App.localData = data;
@@ -54,13 +54,18 @@ const App = {
                 passwords: {1:'', 2:'', 3:'', 4:'', 5:'', 6:''}, 
                 totalRounds: 3,
                 answers: {1:'', 2:'', 3:''},
+                timings: {1:{iSM:0,iSS:0,iEM:0,iES:0,aSM:0,aSS:0,aEM:0,aES:0}, 2:{iSM:0,iSS:0,iEM:0,iES:0,aSM:0,aSS:0,aEM:0,aES:0}, 3:{iSM:0,iSS:0,iEM:0,iES:0,aSM:0,aSS:0,aEM:0,aES:0}},
                 currentRound: 1,
-                teacherFontSize: 30, // 기본 폰트 사이즈
+                teacherFontSize: 30, 
                 hintLimit: 1,    
+                revealSpeed: 0.2,
                 isLocked: false,
                 timerEnd: null,
                 currentEffect: null, 
-                clearTrigger: 0 
+                clearTrigger: 0,
+                audioCommand: null,
+                revealTrigger: 0,
+                hideAllTrigger: 0 
             },
             groups: { "0": { dummy: true } },
             hintRequests: { "dummy": { dummy: true } }
@@ -70,12 +75,13 @@ const App = {
 
     getData: () => {
         let data = App.localData;
-        if (!data) return { settings: { groupCount: 6, passwords: {}, answers: {}, hintLimit:1, teacherFontSize: 30 }, groups: {}, hintRequests: {} };
+        if (!data) return { settings: { groupCount: 6, passwords: {}, answers: {}, timings:{}, hintLimit:1, teacherFontSize: 30, revealSpeed:0.2 }, groups: {}, hintRequests: {} };
         let cloned = JSON.parse(JSON.stringify(data));
         if (!cloned.groups) cloned.groups = {};
         if (!cloned.settings) cloned.settings = {};
         if (!cloned.settings.passwords) cloned.settings.passwords = {};
         if (!cloned.settings.answers) cloned.settings.answers = {};
+        if (!cloned.settings.timings) cloned.settings.timings = {};
         if (!cloned.hintRequests) cloned.hintRequests = {};
         return cloned;
     },
@@ -88,24 +94,26 @@ const App = {
 
     getSettings: () => App.getData().settings,
     
-    saveSettings: (adminPw, groupCount, passwords, totalRounds, answers, hintLimit, tFontSize) => {
+    saveSettings: (adminPw, groupCount, passwords, totalRounds, answers, timings, hintLimit, tFontSize) => {
         const data = App.getData();
         data.settings.adminPassword = adminPw;
         data.settings.groupCount = groupCount;
         data.settings.passwords = passwords;
         data.settings.totalRounds = totalRounds;
         data.settings.answers = answers;
+        data.settings.timings = timings;
         data.settings.hintLimit = hintLimit;
         data.settings.teacherFontSize = tFontSize;
         if(data.settings.currentRound > totalRounds) data.settings.currentRound = 1;
         App.saveData(data);
     },
 
-    // 사이드바 설정 실시간 저장 (글자 크기, 힌트 리밋)
     saveSettingsOnly: () => {
         const data = App.getData();
         data.settings.hintLimit = parseInt(document.getElementById('set-hint-limit').value) || 1;
         data.settings.teacherFontSize = document.getElementById('cctv-font-size').value;
+        const spd = document.getElementById('reveal-speed');
+        if(spd) data.settings.revealSpeed = parseFloat(spd.value);
         App.saveData(data);
     },
 
@@ -145,14 +153,51 @@ const App = {
         App.saveData(data);
     },
 
-    triggerClearAll: () => {
+    triggerAudio: (type) => {
         const data = App.getData();
-        data.settings.clearTrigger = Date.now();
+        data.settings.audioCommand = { type: type, ts: Date.now() };
         App.saveData(data);
     },
 
-    // 🌟 힌트 처리 로직
-    orderHint: (groupId, type) => {
+    triggerRevealAll: () => {
+        const data = App.getData();
+        data.settings.revealTrigger = Date.now();
+        App.saveData(data);
+    },
+
+    triggerHideAll: () => {
+        const data = App.getData();
+        data.settings.hideAllTrigger = Date.now();
+        App.saveData(data);
+    },
+
+    // 🌟 제출판 및 힌트 전체 초기화 (경합 방지 통합 함수)
+    clearBoardsAndHints: () => {
+        // 동기화 이슈 방지를 위해 DB에서 한 번 읽어와서 확실하게 처리
+        dbRef.once('value').then((snapshot) => {
+            let data = snapshot.val();
+            if(!data) return;
+            if(!data.settings) data.settings = {};
+            data.settings.clearTrigger = Date.now();
+            
+            if(data.groups) {
+                for(let key in data.groups) {
+                    data.groups[key].usedHints = [];
+                    data.groups[key].hintCount = 0;
+                    if(data.groups[key].membersData) {
+                        for(let member in data.groups[key].membersData) {
+                            data.groups[key].membersData[member].data = '';
+                            data.groups[key].membersData[member].type = 'pen'; // 툴 초기화
+                        }
+                    }
+                }
+            }
+            data.hintRequests = { "dummy": { dummy: true } };
+            dbRef.set(data);
+        });
+    },
+
+    orderHint: (groupId, type, param='') => {
         const data = App.getData();
         if(!data.groups[groupId].usedHints) data.groups[groupId].usedHints = [];
         if(typeof data.groups[groupId].hintCount === 'undefined') data.groups[groupId].hintCount = 0;
@@ -161,8 +206,9 @@ const App = {
         data.groups[groupId].hintCount++;
 
         const reqId = `req_${Date.now()}_${groupId}`;
-        data.hintRequests[reqId] = { group: groupId, type: type, ts: Date.now(), status: 'pending', alerted: false };
+        data.hintRequests[reqId] = { group: groupId, type: type, param: param, ts: Date.now(), status: 'pending', alerted: false };
         App.saveData(data);
+        return reqId; 
     },
 
     getHintRequests: () => App.getData().hintRequests || {},
@@ -175,13 +221,27 @@ const App = {
         }
     },
 
-    resetAllHints: () => {
+    cancelHint: (reqId) => {
+        const data = App.getData();
+        const req = data.hintRequests[reqId];
+        if (req && req.status === 'pending') {
+            req.status = 'cancelled';
+            const g = data.groups[req.group];
+            if (g) {
+                if (g.hintCount > 0) g.hintCount--;
+                g.usedHints = (g.usedHints || []).filter(h => h !== req.type);
+            }
+            App.saveData(data);
+        }
+    },
+
+    addHintOpportunity: () => {
         const data = App.getData();
         for(let key in data.groups) {
-            data.groups[key].usedHints = [];
-            data.groups[key].hintCount = 0;
+            if(data.groups[key].hintCount > 0) {
+                data.groups[key].hintCount--;
+            }
         }
-        data.hintRequests = { "dummy": { dummy: true } }; // 내역 싹 지우기
         App.saveData(data);
     },
 
@@ -239,19 +299,6 @@ const App = {
     },
 
     getAllGroups: () => App.getData().groups || {},
-    
-    clearAllBoards: () => {
-        const data = App.getData();
-        if(!data.groups) return;
-        for (let key in data.groups) {
-            if(data.groups[key].membersData) {
-                for (let member in data.groups[key].membersData) {
-                    data.groups[key].membersData[member].data = '';
-                }
-            }
-        }
-        App.saveData(data);
-    },
 
     gradeAnswer: (correct, submitted) => {
         if (!correct || !submitted) return { rate: 0, html: '제출된 답이 없습니다.' };
@@ -259,10 +306,17 @@ const App = {
         const cStr = correct.replace(/\s+/g, '');
         let sStr = submitted.replace(/\s+/g, '');
         if (sStr.length < cStr.length) sStr = sStr.padEnd(cStr.length, ' ');
+        
         let correctCount = 0, htmlResult = '';
         for (let i = 0; i < cStr.length; i++) {
-            if (cStr[i] === sStr[i]) { correctCount++; htmlResult += `<span>${sStr[i]}</span>`; }
-            else { htmlResult += `<span class="wrong-char">${sStr[i] !== ' ' ? sStr[i] : 'X'}</span>`; }
+            if (cStr[i] === sStr[i]) { 
+                correctCount++; 
+                htmlResult += `<span>${sStr[i]}</span>`; 
+            } else if (sStr[i] !== ' ' && sStr[i] !== 'X' && cStr.includes(sStr[i])) {
+                htmlResult += `<span style="color:#3498db; font-weight:bold;">${sStr[i]}</span>`;
+            } else { 
+                htmlResult += `<span class="wrong-char">${sStr[i] !== ' ' ? sStr[i] : 'X'}</span>`; 
+            }
         }
         return { rate: Math.round((correctCount / cStr.length) * 100), correctCount: correctCount, totalCount: cStr.length, html: htmlResult };
     }
