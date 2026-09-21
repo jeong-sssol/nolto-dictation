@@ -195,8 +195,6 @@ function executeAudioCommand(type, settings) {
 
     if (type === 'intro_then_answer') {
         playIntroThenAnswer(iStart, iEnd, aStart, aEnd, false, settings.revealSpeed);
-    } else if (type === 'answer') {
-        startAnswerWithCountdown(aStart, aEnd, false, settings.revealSpeed);
     } else if (type === 'answer_and_reveal') {
         startAnswerWithCountdown(aStart, aEnd, true, settings.revealSpeed);
     } else if (type === 'stop') {

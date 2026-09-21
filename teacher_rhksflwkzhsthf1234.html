@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>교사 모드 - 놀토 받쓰</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=29">
+    <link rel="stylesheet" href="css/style.css?v=30">
 </head>
 <body class="teacher-bg">
     <header class="teacher-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; flex-wrap:wrap; gap:10px;">
@@ -60,7 +60,6 @@
             <h3 style="color:#8e44ad;">🎵 전광판 오디오 컨트롤</h3>
             <div style="display:flex; flex-direction:column; gap:10px;">
                 <button onclick="App.triggerAudio('intro_then_answer')" style="background:#8e44ad; color:white;">🎵 인트로 ➔ 정답(321) 연속 재생</button>
-                <!-- 🌟 정답만 재생 기능 복구 완료 -->
                 <button onclick="App.triggerAudio('answer')" style="background:#2980b9; color:white;">🎵 정답(321)만 재생</button>
                 <button onclick="App.triggerAudio('stop')" style="background:#7f8c8d; color:white;">⏹ 음악 정지</button>
             </div>
@@ -73,9 +72,10 @@
                 <button onclick="App.triggerHideAll()" style="background:#34495e; color:white;">⬇️ 전광판 글자 모두 덮기 (숨기기)</button>
             </div>
             
-            <div style="margin-top:15px;">
-                <label style="font-weight:bold; font-size:1.1rem;">⚡ 촤라락 오픈 속도: <span id="speed-val">0.2</span>초</label>
-                <input type="range" id="reveal-speed" min="0.1" max="1.0" step="0.1" value="0.2" onchange="App.saveSettingsOnly();" style="width:100%;">
+            <div style="margin-top:15px; display:flex; align-items:center; gap:5px;">
+                <label style="font-weight:bold; font-size:1.1rem;">⚡ 촤라락 속도 (초): </label>
+                <!-- 🌟 정밀한 입력을 위해 슬라이더에서 텍스트 입력창으로 변경 -->
+                <input type="number" id="reveal-speed" min="0.01" max="2.0" step="0.01" value="0.2" class="time-input" onchange="App.saveSettingsOnly();" style="width:70px;">
             </div>
         </div>
 
@@ -90,15 +90,22 @@
         
         <div class="sidebar-section">
             <h3 style="color:#27ae60;">💡 힌트 및 칠판 제어</h3>
-            <label style="display:block; margin-bottom:5px;">모둠당 힌트(누적): 
-                <input type="number" id="set-hint-limit" value="1" style="width:60px; height:30px; text-align:center;" onchange="App.saveSettingsOnly()">
-            </label>
+            
+            <!-- 🌟 힌트 시간 및 횟수 설정부 통합 -->
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <label style="font-weight:bold;">모둠별 힌트 횟수:</label>
+                <div><input type="number" id="set-hint-limit" value="1" min="1" max="10" style="width:50px; text-align:center;" onchange="App.saveSettingsOnly()"> 회</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                <label style="font-weight:bold;">힌트 오픈 시간:</label>
+                <div><input type="number" id="set-hint-duration" value="3" min="1" max="10" style="width:50px; text-align:center;" onchange="App.saveSettingsOnly()"> 초</div>
+            </div>
+
             <button onclick="executeAddHint()" style="background:#8e44ad; color:white; width:100%; margin-bottom:15px; font-weight:bold;">💡 이번 라운드 힌트 기회 +1 추가</button>
 
             <label style="display:block; margin-bottom:5px;">CCTV 글자 크기: <span id="font-size-val"></span>px</label>
             <input type="range" id="cctv-font-size" min="15" max="60" value="30" onchange="App.saveSettingsOnly(); renderCCTV();" style="width:100%; margin-bottom:15px;">
 
-            <!-- 🌟 수정된 전체 초기화 기능 -->
             <button onclick="executeClearAll()" style="background: #e67e22; color:white; width:100%;">🧽 전체 받쓰판 지우기 (+힌트리셋)</button>
         </div>
     </div>
@@ -133,7 +140,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="js/app.js?v=29"></script>
+    <script src="js/app.js?v=30"></script>
 
     <script>
         const cctvContainer = document.getElementById('cctv-container');
@@ -147,10 +154,8 @@
             document.getElementById('set-total-rounds').value = settings.totalRounds || 3;
             document.getElementById('set-hint-limit').value = settings.hintLimit || 1;
             document.getElementById('cctv-font-size').value = settings.teacherFontSize || 30;
-            if(settings.revealSpeed) {
-                document.getElementById('reveal-speed').value = settings.revealSpeed;
-                document.getElementById('speed-val').innerText = settings.revealSpeed;
-            }
+            if(settings.revealSpeed) document.getElementById('reveal-speed').value = settings.revealSpeed;
+            if(settings.hintDuration) document.getElementById('set-hint-duration').value = settings.hintDuration;
             
             renderDynamicInputs(settings.passwords, settings.answers, settings.timings);
             updateDashboardControls();
@@ -178,7 +183,7 @@
             const pwContainer = document.getElementById('group-pw-container');
             let pwHtml = '';
             for(let i=1; i<=groupCount; i++) {
-                pwHtml += `<label style="margin:5px;">${i}조: <input type="text" id="pw-${i}" value="${existingPws[i]||''}" style="width:60px; padding:5px;"></label>`;
+                pwHtml += `<label style="margin:5px;">${i}조: <input type="text" id="pw-${i}" value="${existingPws[i]||''}" style="width:65px; padding:5px;"></label>`;
             }
             pwContainer.innerHTML = pwHtml;
 
@@ -186,17 +191,16 @@
             let ansHtml = '';
             for(let i=1; i<=roundCount; i++) {
                 const t = existingTimings[i] || {iSM:0, iSS:0, iEM:0, iES:0, aSM:0, aSS:0, aEM:0, aES:0};
-                // 🌟 소수점 초 입력을 위해 step="0.1" 추가
                 ansHtml += `
                     <div style="background:#fff; padding:10px; border-radius:5px; border:1px solid #ccc;">
                         <strong>${i}R 정답:</strong> <input type="text" id="ans-${i}" value="${existingAns[i]||''}" style="width:80%; padding:5px; margin-bottom:5px;"><br>
                         <span style="font-size:1rem; color:#555; display:inline-block; margin-top:5px;">
                             <strong style="display:inline-block; width:55px;">인트로:</strong> 
-                            <input type="number" id="t-i-s-m-${i}" value="${t.iSM||''}" class="time-input">분 <input type="number" id="t-i-s-s-${i}" value="${t.iSS||''}" class="time-input" step="0.1" min="0" max="59.9">초 ~ 
-                            <input type="number" id="t-i-e-m-${i}" value="${t.iEM||''}" class="time-input">분 <input type="number" id="t-i-e-s-${i}" value="${t.iES||''}" class="time-input" step="0.1" min="0" max="59.9">초 <br>
+                            <input type="number" id="t-i-s-m-${i}" value="${t.iSM||''}" class="time-input">분 <input type="number" id="t-i-s-s-${i}" value="${t.iSS||''}" class="time-input" step="0.01" min="0" max="59.99">초 ~ 
+                            <input type="number" id="t-i-e-m-${i}" value="${t.iEM||''}" class="time-input">분 <input type="number" id="t-i-e-s-${i}" value="${t.iES||''}" class="time-input" step="0.01" min="0" max="59.99">초 <br>
                             <strong style="display:inline-block; width:55px;">정답:</strong> 
-                            <input type="number" id="t-a-s-m-${i}" value="${t.aSM||''}" class="time-input">분 <input type="number" id="t-a-s-s-${i}" value="${t.aSS||''}" class="time-input" step="0.1" min="0" max="59.9">초 ~ 
-                            <input type="number" id="t-a-e-m-${i}" value="${t.aEM||''}" class="time-input">분 <input type="number" id="t-a-e-s-${i}" value="${t.aES||''}" class="time-input" step="0.1" min="0" max="59.9">초
+                            <input type="number" id="t-a-s-m-${i}" value="${t.aSM||''}" class="time-input">분 <input type="number" id="t-a-s-s-${i}" value="${t.aSS||''}" class="time-input" step="0.01" min="0" max="59.99">초 ~ 
+                            <input type="number" id="t-a-e-m-${i}" value="${t.aEM||''}" class="time-input">분 <input type="number" id="t-a-e-s-${i}" value="${t.aES||''}" class="time-input" step="0.01" min="0" max="59.99">초
                         </span>
                     </div>
                 `;
@@ -226,7 +230,6 @@
                 let timings = {};
                 for(let i=1; i<=totalRounds; i++) {
                     answers[i] = document.getElementById(`ans-${i}`).value;
-                    // 🌟 소수점 파싱 parseFloat 적용
                     timings[i] = {
                         iSM: parseInt(document.getElementById(`t-i-s-m-${i}`).value) || 0,
                         iSS: parseFloat(document.getElementById(`t-i-s-s-${i}`).value) || 0,
@@ -257,7 +260,6 @@
             }
         }
 
-        // 🌟 수정된 전체 초기화 기능 (안정적인 실행)
         function executeClearAll() {
             if(confirm('학생 칠판 지우기 및 힌트 사용내역을 모두 초기화하시겠습니까?')) {
                 App.clearBoardsAndHints(); 
@@ -289,7 +291,9 @@
             document.getElementById('cctv-font-size').value = settings.teacherFontSize || 30;
             if(settings.revealSpeed) {
                 document.getElementById('reveal-speed').value = settings.revealSpeed;
-                document.getElementById('speed-val').innerText = settings.revealSpeed;
+            }
+            if(settings.hintDuration) {
+                document.getElementById('set-hint-duration').value = settings.hintDuration;
             }
 
             renderDynamicInputs(settings.passwords, settings.answers, settings.timings); 
@@ -407,7 +411,7 @@
             const now = Date.now();
             for(let key in hints) {
                 if(hints[key].status === 'pending' && (now - hints[key].ts > 60000) && !hints[key].alerted) {
-                    alert(`🚨 [${hints[key].group}모둠] 힌트 요청이 1분 이상 지연되었습니다!`);
+                    alert(`🚨 [${hints[key].group}모둠] 힌트 주문이 1분 이상 지연되었습니다!`);
                     App.markHintAlerted(key);
                 }
             }

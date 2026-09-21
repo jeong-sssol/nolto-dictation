@@ -149,11 +149,15 @@ function showToast(msg) {
 }
 
 function executeHint(type, param) {
+    const settings = App.getSettings();
+    const hSec = settings.hintDuration || 3;
+    const ms = hSec * 1000 + 500;
+
     if (type === '전체 띄어쓰기') {
         const container = document.getElementById('tv-word-container');
         container.classList.add('tv-space-active');
-        showToast("💡 전체 띄어쓰기 (3초 후 닫힘)");
-        setTimeout(() => { container.classList.remove('tv-space-active'); }, 3500);
+        showToast(`💡 전체 띄어쓰기 (${hSec}초 후 닫힘)`);
+        setTimeout(() => { container.classList.remove('tv-space-active'); }, ms);
         
     } else if (type === '초성 2개 보기') {
         const unrevealed = boxData.filter(d => !d.revealed);
@@ -182,7 +186,7 @@ function executeHint(type, param) {
             inner.style.color = "#e74c3c";
         });
         
-        showToast(`💡 지정 초성 오픈 (3초 후 닫힘)`);
+        showToast(`💡 지정 초성 오픈 (${hSec}초 후 닫힘)`);
         setTimeout(() => {
             targets.forEach(item => {
                 item.choHintShown = false;
@@ -190,17 +194,17 @@ function executeHint(type, param) {
                 inner.innerText = item.id;
                 inner.style.color = "inherit";
             });
-        }, 3500);
+        }, ms);
 
     } else if (type === '3초 보기') {
-        showToast("💡 전체 공개 (3초 후 닫힘)");
+        showToast(`💡 전체 공개 (${hSec}초 후 닫힘)`);
         const unrevealed = boxData.filter(d => !d.revealed);
         unrevealed.forEach(item => revealSingleBox(item.id, false));
         
         const num = document.getElementById('tv-countdown-number');
         num.classList.remove('hidden');
         
-        let cnt = 3;
+        let cnt = hSec;
         num.innerText = cnt;
         const iv = setInterval(() => {
             cnt--;
@@ -218,9 +222,9 @@ function executeHint(type, param) {
         if(!item) return showToast("❌ 해당 번호를 찾을 수 없습니다.");
         if(item.revealed) return showToast("❌ 이미 열려있는 글자입니다.");
         
-        showToast(`💡 ${targetId}번 글자 보기 (3초 후 닫힘)`);
+        showToast(`💡 ${targetId}번 글자 보기 (${hSec}초 후 닫힘)`);
         revealSingleBox(targetId, false);
-        setTimeout(() => revertSingleBox(targetId), 3500);
+        setTimeout(() => revertSingleBox(targetId), ms);
         
     } else if (type === '오답수 알려주기') {
         showToast("💡 오답수 확인 완료 (화면 변화 없음)");

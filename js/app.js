@@ -59,6 +59,7 @@ const App = {
                 teacherFontSize: 30, 
                 hintLimit: 1,    
                 revealSpeed: 0.2,
+                hintDuration: 3, 
                 isLocked: false,
                 timerEnd: null,
                 currentEffect: null, 
@@ -75,7 +76,7 @@ const App = {
 
     getData: () => {
         let data = App.localData;
-        if (!data) return { settings: { groupCount: 6, passwords: {}, answers: {}, timings:{}, hintLimit:1, teacherFontSize: 30, revealSpeed:0.2 }, groups: {}, hintRequests: {} };
+        if (!data) return { settings: { groupCount: 6, passwords: {}, answers: {}, timings:{}, hintLimit:1, hintDuration: 3, teacherFontSize: 30, revealSpeed:0.2 }, groups: {}, hintRequests: {} };
         let cloned = JSON.parse(JSON.stringify(data));
         if (!cloned.groups) cloned.groups = {};
         if (!cloned.settings) cloned.settings = {};
@@ -83,6 +84,7 @@ const App = {
         if (!cloned.settings.answers) cloned.settings.answers = {};
         if (!cloned.settings.timings) cloned.settings.timings = {};
         if (!cloned.hintRequests) cloned.hintRequests = {};
+        if (typeof cloned.settings.hintDuration === 'undefined') cloned.settings.hintDuration = 3;
         return cloned;
     },
 
@@ -114,6 +116,8 @@ const App = {
         data.settings.teacherFontSize = document.getElementById('cctv-font-size').value;
         const spd = document.getElementById('reveal-speed');
         if(spd) data.settings.revealSpeed = parseFloat(spd.value);
+        const hd = document.getElementById('set-hint-duration');
+        if(hd) data.settings.hintDuration = parseInt(hd.value) || 3;
         App.saveData(data);
     },
 
@@ -173,7 +177,6 @@ const App = {
 
     // 🌟 제출판 및 힌트 전체 초기화 (경합 방지 통합 함수)
     clearBoardsAndHints: () => {
-        // 동기화 이슈 방지를 위해 DB에서 한 번 읽어와서 확실하게 처리
         dbRef.once('value').then((snapshot) => {
             let data = snapshot.val();
             if(!data) return;
