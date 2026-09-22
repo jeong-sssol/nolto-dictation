@@ -109,7 +109,10 @@ const App = {
 
     setCurrentRound: (round) => { dbRef.child('settings/currentRound').set(round); },
     setLock: (isLocked) => {
-        dbRef.child('settings').update({ isLocked: isLocked, timerEnd: isLocked ? null : App.getSettings().timerEnd });
+        // 🌟 명시적/암묵적 잠금 해제 시, 타이머 데이터도 완벽하게 날려서 UI 동기화
+        const updates = { isLocked: isLocked };
+        if (!isLocked) updates.timerEnd = null; 
+        dbRef.child('settings').update(updates);
     },
     startTimer: (seconds) => { dbRef.child('settings').update({ timerEnd: Date.now() + (seconds * 1000), isLocked: false }); },
     stopTimer: () => { dbRef.child('settings/timerEnd').set(null); },
@@ -227,6 +230,31 @@ const App = {
         });
     },
 
+    // 🌟 학생 스스로 이름 변경하기 로직
+    changeMemberName: (groupId, oldName, newName) => {
+        const gRef = dbRef.child(`groups/${groupId}`);
+        gRef.once('value').then(snap => {
+            let gData = snap.val();
+            if(gData && gData.members && gData.members[oldName]) {
+                let updates = {};
+                updates[`groups/${groupId}/members/${oldName}`] = null;
+                updates[`groups/${groupId}/members/${newName}`] = true;
+                
+                if (gData.membersData && gData.membersData[oldName]) {
+                    updates[`groups/${groupId}/membersData/${newName}`] = gData.membersData[oldName];
+                    updates[`groups/${groupId}/membersData/${oldName}`] = null;
+                } else {
+                    updates[`groups/${groupId}/membersData/${newName}`] = { type: 'pen', data: '', color: '#ffffff', size: 5 };
+                }
+                
+                if (gData.master === oldName) {
+                    updates[`groups/${groupId}/master`] = newName;
+                }
+                dbRef.update(updates);
+            }
+        });
+    },
+
     setMaster: (groupId, newMaster) => { dbRef.child(`groups/${groupId}/master`).set(newMaster); },
 
     setGroupName: (groupId, customName) => { dbRef.child(`groups/${groupId}/customName`).set(customName); },
@@ -238,19 +266,36 @@ const App = {
 
     getAllGroups: () => App.getData().groups || {},
 
+    // 🌟 파란색 글씨 버그 수정 (단순 포함 검사가 아닌 개수 차감 방식 도입)
     gradeAnswer: (correct, submitted) => {
         if (!correct || !submitted) return { rate: 0, html: '제출된 답이 없습니다.' };
         if (submitted.startsWith('data:image')) return { rate: 0, html: '📝 손글씨 모드 (자동채점 불가)' };
-        const cStr = correct.replace(/\\s+/g, '');
-        let sStr = submitted.replace(/\\s+/g, '');
+        
+        const cStr = correct.replace(/\s+/g, '');
+        let sStr = submitted.replace(/\s+/g, '');
         if (sStr.length < cStr.length) sStr = sStr.padEnd(cStr.length, ' ');
         
+        // 1. 정답의 글자별 개수 카운팅 맵 생성
+        let correctFreq = {};
+        for (let char of cStr) {
+            correctFreq[char] = (correctFreq[char] || 0) + 1;
+        }
+        
+        // 2. 정확히 제자리에 맞은 글자(검은색)는 미리 차감
+        for (let i = 0; i < cStr.length; i++) {
+            if (cStr[i] === sStr[i]) {
+                correctFreq[cStr[i]]--;
+            }
+        }
+        
+        // 3. 남은 잉여 개수로 파란색(자리 틀림) 부여
         let correctCount = 0, htmlResult = '';
         for (let i = 0; i < cStr.length; i++) {
             if (cStr[i] === sStr[i]) { 
                 correctCount++; 
                 htmlResult += `<span>${sStr[i]}</span>`; 
-            } else if (sStr[i] !== ' ' && sStr[i] !== 'X' && cStr.includes(sStr[i])) {
+            } else if (sStr[i] !== ' ' && sStr[i] !== 'X' && correctFreq[sStr[i]] && correctFreq[sStr[i]] > 0) {
+                correctFreq[sStr[i]]--; // 사용된 글자는 개수 차감
                 htmlResult += `<span style="color:#3498db; font-weight:bold;">${sStr[i]}</span>`;
             } else { 
                 htmlResult += `<span class="wrong-char">${sStr[i] !== ' ' ? sStr[i] : 'X'}</span>`; 

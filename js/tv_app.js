@@ -2,10 +2,10 @@ let tvCurrentRound = 1;
 let tvAnsStr = "";
 let boxData = []; 
 let isSpacingActive = false;
-let tvLastEffectTs = 0;
-let tvLastAudioTs = 0;
-let tvLastRevealTs = 0;
-let tvLastHideAllTs = 0; 
+let tvLastEffectTs = Date.now();
+let tvLastAudioTs = Date.now();
+let tvLastRevealTs = Date.now();
+let tvLastHideAllTs = Date.now(); 
 
 const audioPlayer = document.getElementById('tv-audio-player');
 let playTimeout = null;

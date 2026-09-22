@@ -3,8 +3,8 @@ let hintAnsStr = "";
 let boxData = []; 
 let isSpacingActive = false;
 let processedHints = new Set();
-let tvLastRevealTs = 0;
-let tvLastHideAllTs = 0; 
+let tvLastRevealTs = Date.now();
+let tvLastHideAllTs = Date.now(); 
 
 window.addEventListener('app-sync', () => {
     const settings = App.getSettings();

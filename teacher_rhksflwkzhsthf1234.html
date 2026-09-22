@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>[교사] 놀토 받쓰</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=36">
+    <link rel="stylesheet" href="css/style.css?v=49">
 </head>
 <body class="teacher-bg">
     <header class="teacher-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; flex-wrap:wrap; gap:10px;">
@@ -27,8 +27,11 @@
                 <button onclick="App.stopTimer()" style="background: #7f8c8d; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-weight:bold;">⏹ 정지</button>
             </div>
 
-            <button id="btn-lock" onclick="toggleLock()" style="padding: 8px 15px; font-size:1.1rem; font-weight:bold; border:none; border-radius:5px; cursor:pointer;"></button>
-            <button onclick="toggleSidebar()" style="background: #e67e22; border: none; padding:8px 15px; border-radius:5px; font-size: 1.2rem; cursor: pointer; color:white; font-weight:bold;">🧰 진행 도구</button>
+            <!-- 🌟 교사모드 버튼 높이 완벽 통일 -->
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button id="btn-lock" style="padding: 0 15px; font-size:1.1rem; font-weight:bold; border:none; border-radius:5px; cursor:pointer; height: 42px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;"></button>
+                <button onclick="toggleSidebar()" style="background: #e67e22; border: none; padding: 0 15px; border-radius:5px; font-size: 1.2rem; cursor: pointer; color:white; font-weight:bold; height: 42px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;">🧰 진행 도구</button>
+            </div>
         </div>
     </header>
 
@@ -74,7 +77,6 @@
             
             <div style="margin-top:15px; display:flex; align-items:center; gap:5px;">
                 <label style="font-weight:bold; font-size:1.1rem;">⚡ 촤라락 속도 (초): </label>
-                <!-- 🌟 정밀한 입력을 위해 슬라이더에서 텍스트 입력창으로 변경 -->
                 <input type="number" id="reveal-speed" min="0.01" max="2.0" step="0.01" value="0.2" class="time-input" onchange="App.saveSettingsOnly();" style="width:70px;">
             </div>
         </div>
@@ -105,7 +107,6 @@
             <label style="display:block; margin-bottom:5px;">CCTV 글자 크기: <span id="font-size-val"></span>px</label>
             <input type="range" id="cctv-font-size" min="15" max="60" value="30" onchange="App.saveSettingsOnly(); renderCCTV();" style="width:100%; margin-bottom:15px;">
 
-            <!-- 🌟 동기식 안정적 리셋 기능 적용 완료 -->
             <button onclick="executeClearAll()" style="background: #e67e22; color:white; width:100%; margin-bottom:10px; font-weight:bold; border:none; padding:12px; border-radius:5px; cursor:pointer;">🧽 전체 받쓰판 지우기 (+힌트리셋)</button>
             <button onclick="resetNextClassData()" style="width:100%; margin-bottom:10px; background:#f39c12; color:white; font-weight:bold; border:none; padding:12px; border-radius:5px; cursor:pointer;">🔄 다음 반 수업 준비 (학생/받쓰판 초기화)</button>
         </div>
@@ -141,7 +142,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="js/app.js?v=36"></script>
+    <script src="js/app.js?v=49"></script>
 
     <script>
         const cctvContainer = document.getElementById('cctv-container');
@@ -184,7 +185,6 @@
             const pwContainer = document.getElementById('group-pw-container');
             let pwHtml = '';
             for(let i=1; i<=groupCount; i++) {
-                // 🌟 모둠 비번 폭 65px로 확장 완료
                 pwHtml += `<label style="margin:5px;">${i}조: <input type="text" id="pw-${i}" value="${existingPws[i]||''}" style="width:65px; padding:5px; text-align:center;"></label>`;
             }
             pwContainer.innerHTML = pwHtml;
@@ -193,7 +193,6 @@
             let ansHtml = '';
             for(let i=1; i<=roundCount; i++) {
                 const t = existingTimings[i] || {iSM:0, iSS:0, iEM:0, iES:0, aSM:0, aSS:0, aEM:0, aES:0};
-                // 🌟 인트로, 정답 간격 55px로 정렬 완벽 적용
                 ansHtml += `
                     <div style="background:#fff; padding:10px; border-radius:5px; border:1px solid #ccc;">
                         <strong>${i}R 정답:</strong> <input type="text" id="ans-${i}" value="${existingAns[i]||''}" style="width:80%; padding:5px; margin-bottom:5px;"><br>
@@ -249,14 +248,12 @@
                 alert("초기 설정이 저장되었습니다. TV 전광판에도 즉시 반영됩니다!");
                 toggleSetupModal();
                 updateDashboardControls();
-                // renderCCTV(); // 🌟 동기화 트리거에서 알아서 호출되므로 중복 렌더링 방지
             } catch(e) {
                 console.error(e);
                 alert("저장 중 오류가 발생했습니다. 모든 칸이 올바르게 채워졌는지 확인해주세요.");
             }
         }
 
-        // 🌟 완전 초기화 (새로운 놀토)
         function resetAllData() {
             if(confirm("노래와 정답을 포함한 모든 데이터가 초기화됩니다. 정말 새 수업을 준비하시겠습니까?")) {
                 App.factoryReset();
@@ -264,7 +261,6 @@
             }
         }
 
-        // 🌟 다음 반 리셋 (학생 데이터만 비우기)
         function resetNextClassData() {
             if(confirm("정답 및 노래 설정은 유지하고, 학생 목록과 받쓰판만 초기화하시겠습니까? (다음 반 수업용)")) {
                 App.resetForNextClass();
@@ -282,14 +278,11 @@
         function updateDashboardControls() {
             const settings = App.getSettings();
             
-            // 🌟 대시보드 세팅값 리셋 방지
             document.getElementById('set-admin-pw').value = settings.adminPassword || '1234';
             document.getElementById('set-groups').value = settings.groupCount || 6;
             document.getElementById('set-total-rounds').value = settings.totalRounds || 3;
             
             const roundSelect = document.getElementById('active-round-select');
-            // 선택값 유지 위한 임시 저장
-            const curSel = roundSelect.value;
             let roundHtml = '';
             for(let i=1; i<=settings.totalRounds; i++) {
                 roundHtml += `<option value="${i}">${i} 라운드 채점</option>`;
@@ -297,15 +290,20 @@
             if(roundSelect.innerHTML !== roundHtml) roundSelect.innerHTML = roundHtml;
             roundSelect.value = settings.currentRound;
 
+            const isImplicitlyLocked = settings.timerEnd && (settings.timerEnd - Date.now()) <= 0;
+            const currentlyLocked = settings.isLocked || isImplicitlyLocked;
             const btnLock = document.getElementById('btn-lock');
-            if (settings.isLocked) {
+
+            if (currentlyLocked) {
                 btnLock.innerText = '🔒 받쓰판 잠금 해제';
                 btnLock.style.background = '#d32f2f';
                 btnLock.style.color = 'white';
+                btnLock.onclick = () => App.setLock(false);
             } else {
                 btnLock.innerText = '🔓 받쓰판 강제 잠금';
                 btnLock.style.background = '#f1c40f';
                 btnLock.style.color = 'black';
+                btnLock.onclick = () => App.setLock(true);
             }
 
             document.getElementById('set-hint-limit').value = settings.hintLimit || 1;
@@ -346,6 +344,7 @@
                         display.innerText = "00:00";
                         bar.style.background = "#c0392b";
                         clearInterval(teacherTimerInterval);
+                        updateDashboardControls();
                     } else {
                         bar.style.background = "#e74c3c";
                         const m = String(Math.floor(left / 60)).padStart(2, '0');
@@ -432,7 +431,7 @@
             const now = Date.now();
             for(let key in hints) {
                 if(hints[key].status === 'pending' && (now - hints[key].ts > 60000) && !hints[key].alerted) {
-                    alert(`🚨 [${hints[key].group}모둠] 힌트 주문이 1분 이상 지연되었습니다!`);
+                    alert(`🚨 [${hints[key].group}모둠] 힌트 요청이 1분 이상 지연되었습니다!`);
                     App.markHintAlerted(key);
                 }
             }
@@ -444,7 +443,6 @@
             renderHintQueue();
         });
 
-        // 🌟 방탄 CCTV 렌더링 로직 (깜빡임 원천 차단 - DOM Diffing 적용)
         function renderCCTV() {
             const settings = App.getSettings();
             const groups = App.getAllGroups();
@@ -454,7 +452,6 @@
             
             document.getElementById('font-size-val').innerText = tFontSize;
 
-            // 1. CCTV 골격이 없거나 개수가 다르면 먼저 생성 (1회성)
             if (cctvContainer.children.length !== parseInt(settings.groupCount)) {
                 cctvContainer.innerHTML = '';
                 for (let i = 1; i <= settings.groupCount; i++) {
@@ -469,31 +466,34 @@
                 }
             }
 
-            // 2. 바뀐 내용물만 핀포인트로 교체하여 깜빡임 제거
             for (let i = 1; i <= settings.groupCount; i++) {
                 const gData = groups[i] || {};
                 const masterName = gData.master || '';
                 const membersDataObj = gData.membersData || {};
                 const mData = membersDataObj[masterName] || { type: 'pen', data: '', color: '#ffffff' };
-                const hintUsedText = gData.hintCount > 0 ? ` (💡${gData.hintCount}회)` : '';
+                
+                // 🌟 (💡 0 / 1회) 형식 고정
+                const hintUsedText = `(💡 ${gData.hintCount || 0} / ${settings.hintLimit || 1}회)`;
                 
                 const grade = App.gradeAnswer(currentAns, mData.data);
-                const customNameDisplay = gData.customName ? ` <span style="color:#e67e22">[${gData.customName}]</span>` : '';
-
-                let masterOptions = `<option value="">방장 없음</option>`;
-                const safeMembers = Array.isArray(gData.members) ? gData.members : Object.keys(gData.members || {});
+                
+                // 🌟 투명한 빈칸 처리
+                let masterOptions = `<option value="" disabled hidden ${!masterName ? 'selected' : ''}> </option>`;
+                const safeMembers = Object.keys(gData.members || {}).filter(k => k !== 'dummy');
                 safeMembers.forEach(m => {
                     masterOptions += `<option value="${m}" ${m===masterName?'selected':''}>${m}</option>`;
                 });
                 
-                const masterSelectHtml = `<select onchange="App.setMaster('${i}', this.value)" style="font-size:0.9rem; padding:2px; border-radius:3px; background:#f1c40f; font-weight:bold; border:none; outline:none; cursor:pointer; margin-left:5px;">${masterOptions}</select>`;
+                const masterSelectHtml = `<select class="fixed-select-sm" onchange="App.setMaster('${i}', this.value)" style="font-size:0.9rem; padding:2px; border-radius:3px; background:#f1c40f; font-weight:bold; border:none; outline:none; cursor:pointer; margin-left:5px;">${masterOptions}</select>`;
 
-                // 텍스트/HTML 부분 업데이트 (바뀌었을 때만 렌더링하여 포커스 상실 방지)
-                const newTitle = `${i} 조${customNameDisplay}${hintUsedText} <span style="font-size:1.1rem; color:#d32f2f;">(방장: ${masterSelectHtml})</span>`;
+                const newTitle = `${i} 조 <span style="font-size:1.1rem; color:#8e44ad;">${hintUsedText}</span> <span style="font-size:1.1rem; color:#d32f2f;">(방장: ${masterSelectHtml})</span>`;
                 const titleEl = document.getElementById(`cctv-title-${i}`);
                 if(titleEl.innerHTML !== newTitle) titleEl.innerHTML = newTitle;
 
-                const newRate = currentAns ? `정답률: ${grade.rate}% (${grade.correctCount}/${grade.totalCount})` : '정답 미입력 (자동채점 대기)';
+                const newRate = currentAns 
+                    ? (grade.totalCount !== undefined && grade.totalCount > 0 ? `정답률: ${grade.rate}% (${grade.correctCount}/${grade.totalCount})` : '제출 대기 중') 
+                    : '정답 미입력 (자동채점 대기)';
+                    
                 const rateEl = document.getElementById(`cctv-rate-${i}`);
                 if(rateEl.innerHTML !== newRate) {
                     rateEl.innerHTML = newRate;
@@ -503,7 +503,6 @@
                 const htmlEl = document.getElementById(`cctv-html-${i}`);
                 if(htmlEl.innerHTML !== grade.html) htmlEl.innerHTML = grade.html;
 
-                // 칠판 부분 업데이트 (이미지 깜빡임 해결)
                 const boardDiv = document.getElementById(`cctv-board-${i}`);
                 if (mData.type === 'text') {
                     const newTextBoard = `<div class="board-text-overlay" style="font-size:${tFontSize}px; color:${mData.color || '#fff'}; word-break: break-all; white-space: pre-wrap;">${mData.data || ''}</div>`;
@@ -511,10 +510,16 @@
                 } else {
                     let img = boardDiv.querySelector('img');
                     if (!img) {
-                        boardDiv.innerHTML = `<img src="${mData.data}" style="width:100%; height:100%; object-fit:contain;">`;
-                    } else if (img.src !== mData.data) {
-                        // 이미지가 존재하면 src 속성만 부드럽게 변경!
-                        img.src = mData.data;
+                        const hiddenClass = mData.data ? '' : 'hidden';
+                        boardDiv.innerHTML = `<img src="${mData.data || ''}" class="${hiddenClass}" style="width:100%; height:100%; object-fit:contain;">`;
+                    } else {
+                        if (mData.data) {
+                            if (img.src !== mData.data) img.src = mData.data;
+                            img.classList.remove('hidden'); 
+                        } else {
+                            if (img.src !== '') img.src = '';
+                            img.classList.add('hidden'); 
+                        }
                     }
                 }
             }
