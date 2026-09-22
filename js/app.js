@@ -175,29 +175,41 @@ const App = {
         App.saveData(data);
     },
 
-    // 🌟 제출판 및 힌트 전체 초기화 (경합 방지 통합 함수)
+    // 🌟 안전하고 직관적인 동기식 리셋
     clearBoardsAndHints: () => {
-        dbRef.once('value').then((snapshot) => {
-            let data = snapshot.val();
-            if(!data) return;
-            if(!data.settings) data.settings = {};
-            data.settings.clearTrigger = Date.now();
-            
-            if(data.groups) {
-                for(let key in data.groups) {
-                    data.groups[key].usedHints = [];
-                    data.groups[key].hintCount = 0;
-                    if(data.groups[key].membersData) {
-                        for(let member in data.groups[key].membersData) {
-                            data.groups[key].membersData[member].data = '';
-                            data.groups[key].membersData[member].type = 'pen'; // 툴 초기화
-                        }
-                    }
+        const data = App.getData();
+        data.settings.clearTrigger = Date.now();
+        for(let key in data.groups) {
+            data.groups[key].usedHints = [];
+            data.groups[key].hintCount = 0;
+            if(data.groups[key].membersData) {
+                for(let member in data.groups[key].membersData) {
+                    data.groups[key].membersData[member].data = '';
+                    data.groups[key].membersData[member].type = 'pen'; 
                 }
             }
-            data.hintRequests = { "dummy": { dummy: true } };
-            dbRef.set(data);
-        });
+        }
+        data.hintRequests = { "dummy": { dummy: true } };
+        App.saveData(data);
+    },
+
+    // 🌟 안전하고 직관적인 동기식 다음 반 리셋
+    resetForNextClass: () => {
+        const data = App.getData();
+        if(data.settings) {
+            data.settings.currentRound = 1;
+            data.settings.isLocked = false;
+            data.settings.timerEnd = null;
+            data.settings.clearTrigger = Date.now();
+            data.settings.revealTrigger = 0;
+            data.settings.hideAllTrigger = 0;
+            data.settings.audioCommand = null;
+        }
+        for(let key in data.groups) {
+            data.groups[key] = { master: '', customName: '', members: [], membersData: {}, usedHints: [], hintCount: 0 };
+        }
+        data.hintRequests = { "dummy": { dummy: true } };
+        App.saveData(data);
     },
 
     orderHint: (groupId, type, param='') => {
