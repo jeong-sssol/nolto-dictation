@@ -178,7 +178,7 @@ function showToast(msg) {
 }
 
 function executeAudioCommand(type, settings) {
-    if(!audioPlayer.src || audioPlayer.src === window.location.href) return alert("하단의 파일 선택 버튼으로 음악을 넣어주세요.");
+    if(!audioPlayer.src || audioPlayer.src.includes('tv.html') || audioPlayer.src.includes('tv_wjsrhkdvks820.html')) return alert("하단의 파일 선택 버튼으로 음악을 넣어주세요.");
     clearTimeout(playTimeout);
     clearInterval(countdownInterval);
     audioPlayer.pause();

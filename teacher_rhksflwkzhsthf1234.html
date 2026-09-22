@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>[교사] 놀토 받쓰</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=35">
+    <link rel="stylesheet" href="css/style.css?v=36">
 </head>
 <body class="teacher-bg">
     <header class="teacher-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; flex-wrap:wrap; gap:10px;">
@@ -141,7 +141,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="js/app.js?v=35"></script>
+    <script src="js/app.js?v=36"></script>
 
     <script>
         const cctvContainer = document.getElementById('cctv-container');
@@ -249,7 +249,7 @@
                 alert("초기 설정이 저장되었습니다. TV 전광판에도 즉시 반영됩니다!");
                 toggleSetupModal();
                 updateDashboardControls();
-                renderCCTV();
+                // renderCCTV(); // 🌟 동기화 트리거에서 알아서 호출되므로 중복 렌더링 방지
             } catch(e) {
                 console.error(e);
                 alert("저장 중 오류가 발생했습니다. 모든 칸이 올바르게 채워졌는지 확인해주세요.");
@@ -258,7 +258,7 @@
 
         // 🌟 완전 초기화 (새로운 놀토)
         function resetAllData() {
-            if(confirm("노래와 정답 세팅을 포함한 모든 데이터가 초기화됩니다. 정말 새 수업을 준비하시겠습니까?")) {
+            if(confirm("노래와 정답을 포함한 모든 데이터가 초기화됩니다. 정말 새 수업을 준비하시겠습니까?")) {
                 App.factoryReset();
                 setTimeout(() => location.reload(), 500);
             }
@@ -266,7 +266,7 @@
 
         // 🌟 다음 반 리셋 (학생 데이터만 비우기)
         function resetNextClassData() {
-            if(confirm("정답 및 노래 설정은 유지하고, 학생 목록과 받쓰판만 비우시겠습니까? (다음 반 수업용)")) {
+            if(confirm("정답 및 노래 설정은 유지하고, 학생 목록과 받쓰판만 초기화하시겠습니까? (다음 반 수업용)")) {
                 App.resetForNextClass();
                 setTimeout(() => location.reload(), 500);
             }
@@ -288,10 +288,13 @@
             document.getElementById('set-total-rounds').value = settings.totalRounds || 3;
             
             const roundSelect = document.getElementById('active-round-select');
-            roundSelect.innerHTML = '';
+            // 선택값 유지 위한 임시 저장
+            const curSel = roundSelect.value;
+            let roundHtml = '';
             for(let i=1; i<=settings.totalRounds; i++) {
-                roundSelect.innerHTML += `<option value="${i}">${i} 라운드 채점</option>`;
+                roundHtml += `<option value="${i}">${i} 라운드 채점</option>`;
             }
+            if(roundSelect.innerHTML !== roundHtml) roundSelect.innerHTML = roundHtml;
             roundSelect.value = settings.currentRound;
 
             const btnLock = document.getElementById('btn-lock');
@@ -385,7 +388,7 @@
             const badge = document.getElementById('hint-badge');
             
             let pendingCount = 0;
-            list.innerHTML = '';
+            let newListHtml = '';
 
             for(let key in hints) {
                 if (hints[key].status === 'pending') {
@@ -394,7 +397,7 @@
                     const timeColor = secs > 60 ? '#e74c3c' : '#bdc3c7';
                     const paramText = hints[key].param ? ` (${hints[key].param})` : '';
                     
-                    list.innerHTML += `
+                    newListHtml += `
                         <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; gap:10px;">
                             <div style="font-size:1.1rem; text-align:left;">
                                 <strong>${hints[key].group}조</strong> [${hints[key].type}${paramText}] 
@@ -407,6 +410,10 @@
                         </div>
                     `;
                 }
+            }
+
+            if(list.innerHTML !== newListHtml) {
+                list.innerHTML = newListHtml;
             }
 
             badge.innerText = pendingCount;
@@ -437,7 +444,7 @@
             renderHintQueue();
         });
 
-        // 🌟 방탄 CCTV 렌더링 로직 (데이터 증발시에도 절대 안 뻗게 방어코드 3중 적용)
+        // 🌟 방탄 CCTV 렌더링 로직 (깜빡임 원천 차단 - DOM Diffing 적용)
         function renderCCTV() {
             const settings = App.getSettings();
             const groups = App.getAllGroups();
@@ -446,8 +453,23 @@
             const currentAns = currentAnsRaw.replace(/\//g, '');
             
             document.getElementById('font-size-val').innerText = tFontSize;
-            cctvContainer.innerHTML = '';
 
+            // 1. CCTV 골격이 없거나 개수가 다르면 먼저 생성 (1회성)
+            if (cctvContainer.children.length !== parseInt(settings.groupCount)) {
+                cctvContainer.innerHTML = '';
+                for (let i = 1; i <= settings.groupCount; i++) {
+                    cctvContainer.innerHTML += `
+                        <div class="cctv-card" id="cctv-card-${i}">
+                            <h3 id="cctv-title-${i}" style="margin:5px 0;"></h3>
+                            <div class="cctv-board" id="cctv-board-${i}"></div>
+                            <div class="correct-rate" id="cctv-rate-${i}"></div>
+                            <div id="cctv-html-${i}" style="font-size:1.2rem; font-weight:bold; margin-top:5px; word-break: break-all; white-space: pre-wrap;"></div>
+                        </div>
+                    `;
+                }
+            }
+
+            // 2. 바뀐 내용물만 핀포인트로 교체하여 깜빡임 제거
             for (let i = 1; i <= settings.groupCount; i++) {
                 const gData = groups[i] || {};
                 const masterName = gData.master || '';
@@ -456,34 +478,45 @@
                 const hintUsedText = gData.hintCount > 0 ? ` (💡${gData.hintCount}회)` : '';
                 
                 const grade = App.gradeAnswer(currentAns, mData.data);
-                
-                let boardContent = '';
-                if (mData.type === 'text') {
-                    boardContent = `<div class="board-text-overlay" style="font-size:${tFontSize}px; color:${mData.color || '#fff'}; word-break: break-all; white-space: pre-wrap;">${mData.data || ''}</div>`;
-                } else if (mData.data) {
-                    boardContent = `<img src="${mData.data}" style="width:100%; height:100%; object-fit:contain;">`;
-                }
-
                 const customNameDisplay = gData.customName ? ` <span style="color:#e67e22">[${gData.customName}]</span>` : '';
 
                 let masterOptions = `<option value="">방장 없음</option>`;
-                if(gData.members && Array.isArray(gData.members)) {
-                    gData.members.forEach(m => {
-                        masterOptions += `<option value="${m}" ${m===masterName?'selected':''}>${m}</option>`;
-                    });
-                }
+                const safeMembers = Array.isArray(gData.members) ? gData.members : Object.keys(gData.members || {});
+                safeMembers.forEach(m => {
+                    masterOptions += `<option value="${m}" ${m===masterName?'selected':''}>${m}</option>`;
+                });
+                
                 const masterSelectHtml = `<select onchange="App.setMaster('${i}', this.value)" style="font-size:0.9rem; padding:2px; border-radius:3px; background:#f1c40f; font-weight:bold; border:none; outline:none; cursor:pointer; margin-left:5px;">${masterOptions}</select>`;
 
-                cctvContainer.innerHTML += `
-                    <div class="cctv-card">
-                        <h3 style="margin:5px 0;">${i} 조${customNameDisplay}${hintUsedText} <span style="font-size:1.1rem; color:#d32f2f;">(방장: ${masterSelectHtml})</span></h3>
-                        <div class="cctv-board">${boardContent}</div>
-                        <div class="correct-rate" style="color: ${grade.rate === 100 ? '#27ae60' : '#d32f2f'}">
-                            ${currentAns ? `정답률: ${grade.rate}% (${grade.correctCount}/${grade.totalCount})` : '정답 미입력 (자동채점 대기)'}
-                        </div>
-                        <div style="font-size:1.2rem; font-weight:bold; margin-top:5px; word-break: break-all; white-space: pre-wrap;">${grade.html}</div>
-                    </div>
-                `;
+                // 텍스트/HTML 부분 업데이트 (바뀌었을 때만 렌더링하여 포커스 상실 방지)
+                const newTitle = `${i} 조${customNameDisplay}${hintUsedText} <span style="font-size:1.1rem; color:#d32f2f;">(방장: ${masterSelectHtml})</span>`;
+                const titleEl = document.getElementById(`cctv-title-${i}`);
+                if(titleEl.innerHTML !== newTitle) titleEl.innerHTML = newTitle;
+
+                const newRate = currentAns ? `정답률: ${grade.rate}% (${grade.correctCount}/${grade.totalCount})` : '정답 미입력 (자동채점 대기)';
+                const rateEl = document.getElementById(`cctv-rate-${i}`);
+                if(rateEl.innerHTML !== newRate) {
+                    rateEl.innerHTML = newRate;
+                    rateEl.style.color = grade.rate === 100 ? '#27ae60' : '#d32f2f';
+                }
+
+                const htmlEl = document.getElementById(`cctv-html-${i}`);
+                if(htmlEl.innerHTML !== grade.html) htmlEl.innerHTML = grade.html;
+
+                // 칠판 부분 업데이트 (이미지 깜빡임 해결)
+                const boardDiv = document.getElementById(`cctv-board-${i}`);
+                if (mData.type === 'text') {
+                    const newTextBoard = `<div class="board-text-overlay" style="font-size:${tFontSize}px; color:${mData.color || '#fff'}; word-break: break-all; white-space: pre-wrap;">${mData.data || ''}</div>`;
+                    if(boardDiv.innerHTML !== newTextBoard) boardDiv.innerHTML = newTextBoard;
+                } else {
+                    let img = boardDiv.querySelector('img');
+                    if (!img) {
+                        boardDiv.innerHTML = `<img src="${mData.data}" style="width:100%; height:100%; object-fit:contain;">`;
+                    } else if (img.src !== mData.data) {
+                        // 이미지가 존재하면 src 속성만 부드럽게 변경!
+                        img.src = mData.data;
+                    }
+                }
             }
         }
     </script>

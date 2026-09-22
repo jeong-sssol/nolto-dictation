@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>[학생] 놀토 받쓰</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=35">
+    <link rel="stylesheet" href="css/style.css?v=36">
 </head>
 <body>
     <div id="login-modal" class="modal active">
@@ -102,7 +102,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="js/app.js?v=35"></script>
+    <script src="js/app.js?v=36"></script>
 
     <script>
         let myGroup = '', myName = '', isMaster = false, isDrawing = false, mode = 'pen';
@@ -110,6 +110,7 @@
         let timerInterval = null;
         let lastEffectTs = 0; let lastClearTs = 0;
         let myPendingHintReqId = null; 
+        let sendTimer = null; // 🌟 텍스트 입력 트래픽 제어용 디바운스 타이머
 
         const defaultHintColors = {
             '전체 띄어쓰기': '#27ae60', '한 글자 보기': '#8e44ad', 
@@ -130,7 +131,7 @@
             ctx.lineWidth = document.getElementById('size-picker').value;
             textBoard.style.color = document.getElementById('color-picker').value;
             textBoard.style.fontSize = (document.getElementById('size-picker').value * 2 + 30) + 'px';
-            sendRealTimeData();
+            forceSendRealTimeData();
         }
 
         window.onload = () => {
@@ -194,18 +195,17 @@
                     btn.style.opacity = '1'; 
                     btn.style.background = '#c0392b'; 
                     btn.innerText = `⏳ ${dispText} 대기 중 (클릭 시 취소)`;
+                    btn.onclick = () => { cancelMyHint(myPendingReqs[type]); };
                 } else if(usedHints.includes(type)) {
                     btn.style.opacity = '0.5'; 
                     btn.style.background = defaultHintColors[type];
                     btn.innerText = `${dispText} (사용완료)`;
-                } else if (myPendingHintReqId) {
-                    btn.style.opacity = '0.5'; 
-                    btn.style.background = defaultHintColors[type];
-                    btn.innerText = dispText;
+                    btn.onclick = () => { alert("이미 사용한 힌트입니다."); };
                 } else {
                     btn.style.opacity = '1'; 
                     btn.style.background = defaultHintColors[type];
                     btn.innerText = dispText;
+                    btn.onclick = () => { submitNewHint(type, totalUsed, limit); };
                 }
             });
 
@@ -214,31 +214,11 @@
 
         function closeHintModal() { document.getElementById('hint-modal').classList.add('hidden'); }
 
-        function handleHintClick(hintType) {
-            const reqs = App.getHintRequests();
-            if (myPendingHintReqId && reqs[myPendingHintReqId]?.type === hintType) {
-                App.cancelHint(myPendingHintReqId);
-                myPendingHintReqId = null;
-                alert("힌트 요청을 취소했습니다. 차감된 횟수가 복구되었습니다.");
-                openHintModal();
-                return;
+        function submitNewHint(hintType, totalUsed, limit) {
+            if (totalUsed >= limit) {
+                return alert(`❌ 배정된 힌트 횟수(${limit}회)를 모두 사용했습니다. (선생님이 추가 기회를 주시면 쓸 수 있습니다!)`);
             }
-
-            if (myPendingHintReqId) {
-                return alert("이미 대기 중인 힌트가 있습니다. 취소 후 다른 힌트를 선택하세요.");
-            }
-
-            const settings = App.getSettings();
-            const groupData = App.getGroup(myGroup);
-            const limit = settings.hintLimit || 1;
-
-            if(groupData.hintCount >= limit) {
-                return alert(`❌ 배정된 힌트 횟수(${limit}회)를 모두 사용했습니다.\n(선생님이 추가 기회를 주시면 쓸 수 있습니다!)`);
-            }
-            if((groupData.usedHints||[]).includes(hintType)) {
-                return alert(`❌ [${hintType}] 힌트는 이미 사용하셨습니다.`);
-            }
-
+            
             let param = '';
             if (hintType === '한 글자 보기') {
                 param = prompt("몇 번 글자를 보시겠습니까? (숫자 1개만 입력)");
@@ -263,6 +243,14 @@
             openHintModal(); 
         }
 
+        function cancelMyHint(reqId) {
+            if(confirm("이 힌트 요청을 취소하시겠습니까? 차감된 횟수가 복구됩니다.")) {
+                App.cancelHint(reqId);
+                alert("취소되었습니다.");
+                openHintModal();
+            }
+        }
+
         function setMode(newMode) {
             mode = newMode;
             document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
@@ -274,16 +262,23 @@
                 canvas.style.pointerEvents = 'auto'; textBoard.classList.add('hidden');
                 ctx.globalCompositeOperation = (mode === 'eraser') ? 'destination-out' : 'source-over';
             }
-            sendRealTimeData();
+            forceSendRealTimeData();
         }
 
         canvas.addEventListener('mousedown', (e) => { if(viewTarget === 'me' && !isBoardLocked()) { isDrawing = true; draw(e); } });
         canvas.addEventListener('mousemove', draw);
-        window.addEventListener('mouseup', () => { if(isDrawing) { isDrawing = false; ctx.beginPath(); sendRealTimeData(); } });
-        textBoard.addEventListener('keyup', sendRealTimeData);
+        // 🌟 마우스 업 시에만 전송하여 트래픽 보호
+        window.addEventListener('mouseup', () => { if(isDrawing) { isDrawing = false; ctx.beginPath(); forceSendRealTimeData(); } });
+        
+        // 🌟 타자 칠때 트래픽 폭탄 방지 (디바운싱 적용)
+        textBoard.addEventListener('keyup', () => {
+            clearTimeout(sendTimer);
+            sendTimer = setTimeout(forceSendRealTimeData, 300);
+        });
+
         canvas.addEventListener('touchstart', (e) => { if(viewTarget === 'me' && !isBoardLocked()) { isDrawing = true; draw(e.touches[0]); } }, {passive:true});
         canvas.addEventListener('touchmove', (e) => { draw(e.touches[0]); }, {passive:true});
-        window.addEventListener('touchend', () => { if(isDrawing) { isDrawing = false; ctx.beginPath(); sendRealTimeData(); } });
+        window.addEventListener('touchend', () => { if(isDrawing) { isDrawing = false; ctx.beginPath(); forceSendRealTimeData(); } });
 
         function draw(e) {
             if (!isDrawing || viewTarget !== 'me' || isBoardLocked()) return;
@@ -301,10 +296,10 @@
             if (isBoardLocked()) return alert("현재 작성 시간이 종료되었거나 잠금 상태입니다.");
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             textBoard.value = '';
-            sendRealTimeData();
+            forceSendRealTimeData();
         }
 
-        function sendRealTimeData() {
+        function forceSendRealTimeData() {
             if (viewTarget !== 'me' || isBoardLocked()) return;
             const data = (mode === 'text') ? textBoard.value : canvas.toDataURL('image/png');
             App.updateMemberBoard(myGroup, myName, { type: mode, data: data, color: document.getElementById('color-picker').value, size: document.getElementById('size-picker').value });
@@ -353,8 +348,7 @@
             let viewHtml = `<option value="me">👉 받쓰판 작성하기</option>`;
             let memberHtml = '';
 
-            // 🔥 버그 방지: members가 배열이 아닐 경우 빈 배열로 처리
-            const safeMembers = Array.isArray(groupData.members) ? groupData.members : [];
+            const safeMembers = Array.isArray(groupData.members) ? groupData.members : Object.keys(groupData.members || {});
 
             safeMembers.forEach(m => {
                 if(m !== myName) {
@@ -362,8 +356,18 @@
                     memberHtml += `<option value="${m}">${m}</option>`;
                 }
             });
-            viewSelect.innerHTML = viewHtml; viewSelect.value = viewTarget; 
-            memberSelect.innerHTML = memberHtml;
+
+            // 🌟 드롭다운 깜빡임 & 닫힘 현상 원천 차단 (내용이 바뀔때만 업데이트)
+            if (viewSelect.innerHTML !== viewHtml) {
+                let currentVal = viewSelect.value;
+                viewSelect.innerHTML = viewHtml;
+                viewSelect.value = currentVal || 'me';
+            }
+            if (memberSelect.innerHTML !== memberHtml) {
+                let currentVal = memberSelect.value;
+                memberSelect.innerHTML = memberHtml;
+                if(currentVal) memberSelect.value = currentVal;
+            }
             
             if (isMaster) {
                 document.getElementById('master-badge').classList.remove('hidden');
@@ -435,14 +439,22 @@
 
                 const membersDataObj = groupData.membersData || {};
                 const targetData = membersDataObj[viewTarget] || { type: 'pen', data: '', color: '#fff', size: 5 };
+                
+                // 🌟 이미지 깜빡임 방지 (DOM 교체 대신 src 속성만 변경)
                 if (targetData.type === 'text') {
                     sharedImg.classList.add('hidden'); sharedText.classList.remove('hidden');
                     sharedText.innerText = targetData.data || ''; sharedText.style.color = targetData.color || '#ffffff';
                     sharedText.style.fontSize = (targetData.size * 2 + 30) + 'px';
                 } else {
                     sharedText.classList.add('hidden');
-                    if (targetData.data) { sharedImg.src = targetData.data; sharedImg.classList.remove('hidden'); }
-                    else { sharedImg.src = ''; sharedImg.classList.add('hidden'); }
+                    if (targetData.data) { 
+                        if(sharedImg.src !== targetData.data) sharedImg.src = targetData.data; 
+                        sharedImg.classList.remove('hidden'); 
+                    }
+                    else { 
+                        if(sharedImg.src !== '') sharedImg.src = ''; 
+                        sharedImg.classList.add('hidden'); 
+                    }
                 }
             }
         }

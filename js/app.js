@@ -88,229 +88,152 @@ const App = {
         return cloned;
     },
 
-    saveData: (data) => {
-        App.localData = JSON.parse(JSON.stringify(data)); 
-        window.dispatchEvent(new Event('app-sync')); 
-        dbRef.set(data); 
-    },
-
     getSettings: () => App.getData().settings,
     
+    // 🌟 덮어쓰기(set) 대신 안전하게 개별 데이터(update, set) 방식으로 전면 수정
     saveSettings: (adminPw, groupCount, passwords, totalRounds, answers, timings, hintLimit, tFontSize) => {
-        const data = App.getData();
-        data.settings.adminPassword = adminPw;
-        data.settings.groupCount = groupCount;
-        data.settings.passwords = passwords;
-        data.settings.totalRounds = totalRounds;
-        data.settings.answers = answers;
-        data.settings.timings = timings;
-        data.settings.hintLimit = hintLimit;
-        data.settings.teacherFontSize = tFontSize;
-        if(data.settings.currentRound > totalRounds) data.settings.currentRound = 1;
-        App.saveData(data);
+        dbRef.child('settings').update({
+            adminPassword: adminPw, groupCount: groupCount, passwords: passwords,
+            totalRounds: totalRounds, answers: answers, timings: timings,
+            hintLimit: hintLimit, teacherFontSize: tFontSize
+        });
     },
 
     saveSettingsOnly: () => {
-        const data = App.getData();
-        data.settings.hintLimit = parseInt(document.getElementById('set-hint-limit').value) || 1;
-        data.settings.teacherFontSize = document.getElementById('cctv-font-size').value;
-        const spd = document.getElementById('reveal-speed');
-        if(spd) data.settings.revealSpeed = parseFloat(spd.value);
-        const hd = document.getElementById('set-hint-duration');
-        if(hd) data.settings.hintDuration = parseInt(hd.value) || 3;
-        App.saveData(data);
+        const hintLimit = parseInt(document.getElementById('set-hint-limit').value) || 1;
+        const teacherFontSize = document.getElementById('cctv-font-size').value;
+        const revealSpeed = parseFloat(document.getElementById('reveal-speed').value);
+        const hintDuration = parseInt(document.getElementById('set-hint-duration').value) || 3;
+        dbRef.child('settings').update({ hintLimit, teacherFontSize, revealSpeed, hintDuration });
     },
 
-    setCurrentRound: (round) => {
-        const data = App.getData();
-        data.settings.currentRound = round;
-        App.saveData(data);
-    },
-
+    setCurrentRound: (round) => { dbRef.child('settings/currentRound').set(round); },
     setLock: (isLocked) => {
-        const data = App.getData();
-        data.settings.isLocked = isLocked;
-        if(isLocked) data.settings.timerEnd = null; 
-        App.saveData(data);
+        dbRef.child('settings').update({ isLocked: isLocked, timerEnd: isLocked ? null : App.getSettings().timerEnd });
     },
-
-    startTimer: (seconds) => {
-        const data = App.getData();
-        data.settings.timerEnd = Date.now() + (seconds * 1000);
-        data.settings.isLocked = false; 
-        App.saveData(data);
-    },
-
-    stopTimer: () => {
-        const data = App.getData();
-        data.settings.timerEnd = null;
-        App.saveData(data);
-    },
+    startTimer: (seconds) => { dbRef.child('settings').update({ timerEnd: Date.now() + (seconds * 1000), isLocked: false }); },
+    stopTimer: () => { dbRef.child('settings/timerEnd').set(null); },
     
-    playAlarm: () => {
-        App.alarmAudio.play().catch(e => console.log("알람 자동재생 막힘"));
-    },
+    playAlarm: () => { App.alarmAudio.play().catch(e => console.log("알람 자동재생 막힘")); },
 
-    triggerEffect: (type, targetIds) => {
-        const data = App.getData();
-        data.settings.currentEffect = { type: type, targets: targetIds, ts: Date.now() };
-        App.saveData(data);
-    },
+    triggerEffect: (type, targetIds) => { dbRef.child('settings/currentEffect').set({ type: type, targets: targetIds, ts: Date.now() }); },
+    triggerAudio: (type) => { dbRef.child('settings/audioCommand').set({ type: type, ts: Date.now() }); },
+    triggerRevealAll: () => { dbRef.child('settings/revealTrigger').set(Date.now()); },
+    triggerHideAll: () => { dbRef.child('settings/hideAllTrigger').set(Date.now()); },
 
-    triggerAudio: (type) => {
-        const data = App.getData();
-        data.settings.audioCommand = { type: type, ts: Date.now() };
-        App.saveData(data);
-    },
-
-    triggerRevealAll: () => {
-        const data = App.getData();
-        data.settings.revealTrigger = Date.now();
-        App.saveData(data);
-    },
-
-    triggerHideAll: () => {
-        const data = App.getData();
-        data.settings.hideAllTrigger = Date.now();
-        App.saveData(data);
-    },
-
-    // 🌟 제출판 내용 지우기 (Firebase 빈 객체 삭제 방어 로직 적용)
+    // 🌟 안전하고 완벽한 일괄 삭제 로직
     clearBoardsAndHints: () => {
-        const data = App.getData();
-        data.settings.clearTrigger = Date.now();
-        for(let key in data.groups) {
-            if(key === '0') continue;
-            data.groups[key].usedHints = [];
-            data.groups[key].hintCount = 0;
-            if(data.groups[key].membersData) {
-                for(let member in data.groups[key].membersData) {
-                    data.groups[key].membersData[member].data = ''; 
-                    data.groups[key].membersData[member].type = 'pen'; 
+        dbRef.once('value').then((snapshot) => {
+            let data = snapshot.val();
+            if(!data) return;
+            let updates = {};
+            updates['settings/clearTrigger'] = Date.now();
+            if(data.groups) {
+                for(let key in data.groups) {
+                    if (key === '0' || key === 'dummy') continue;
+                    updates[`groups/${key}/usedHints`] = [];
+                    updates[`groups/${key}/hintCount`] = 0;
+                    if(data.groups[key].membersData) {
+                        for(let member in data.groups[key].membersData) {
+                            updates[`groups/${key}/membersData/${member}/data`] = '';
+                            updates[`groups/${key}/membersData/${member}/type`] = 'pen'; 
+                        }
+                    }
                 }
             }
-        }
-        data.hintRequests = { "dummy": { dummy: true } };
-        App.saveData(data);
+            updates['hintRequests'] = { "dummy": { dummy: true } };
+            dbRef.update(updates);
+        });
     },
 
-    // 🌟 안전하고 완벽한 다음 반 수업 준비 (학생 데이터 100% 완전 백지화, 세팅은 유지)
+    // 🌟 다음 반 수업 준비 완전 분리 (그룹 빈칸으로 인한 에러 방지)
     resetForNextClass: () => {
-        const data = App.getData();
-        if(data.settings) {
-            data.settings.currentRound = 1;
-            data.settings.isLocked = false;
-            data.settings.timerEnd = null;
-            data.settings.clearTrigger = Date.now();
-            data.settings.revealTrigger = 0;
-            data.settings.hideAllTrigger = 0;
-            data.settings.audioCommand = null;
-        }
-        // 그룹 자체를 날려버려서 완벽한 초기화 보장 (오류 원천 차단)
-        data.groups = { "0": { dummy: true } };
-        data.hintRequests = { "dummy": { dummy: true } };
-        App.saveData(data);
+        let updates = {
+            'settings/currentRound': 1, 'settings/isLocked': false, 'settings/timerEnd': null,
+            'settings/clearTrigger': Date.now(), 'settings/revealTrigger': 0, 'settings/hideAllTrigger': 0, 'settings/audioCommand': null,
+            'groups': { "0": { dummy: true } }, 'hintRequests': { "dummy": { dummy: true } }
+        };
+        dbRef.update(updates);
     },
 
     orderHint: (groupId, type, param='') => {
-        const data = App.getData();
-        if(!data.groups[groupId].usedHints) data.groups[groupId].usedHints = [];
-        if(typeof data.groups[groupId].hintCount === 'undefined') data.groups[groupId].hintCount = 0;
-        
-        data.groups[groupId].usedHints.push(type);
-        data.groups[groupId].hintCount++;
-
         const reqId = `req_${Date.now()}_${groupId}`;
-        data.hintRequests[reqId] = { group: groupId, type: type, param: param, ts: Date.now(), status: 'pending', alerted: false };
-        App.saveData(data);
+        const updates = {};
+        updates[`hintRequests/${reqId}`] = { group: groupId, type: type, param: param, ts: Date.now(), status: 'pending', alerted: false };
+        
+        // 트랜잭션 방식으로 힌트 사용 내역 증가
+        const groupRef = dbRef.child(`groups/${groupId}`);
+        groupRef.once('value').then(snap => {
+            let gData = snap.val() || {};
+            let usedHints = gData.usedHints || [];
+            let hintCount = gData.hintCount || 0;
+            usedHints.push(type);
+            updates[`groups/${groupId}/usedHints`] = usedHints;
+            updates[`groups/${groupId}/hintCount`] = hintCount + 1;
+            dbRef.update(updates);
+        });
         return reqId; 
     },
 
     getHintRequests: () => App.getData().hintRequests || {},
 
-    processHint: (reqId, status) => {
-        const data = App.getData();
-        if(data.hintRequests[reqId]) {
-            data.hintRequests[reqId].status = status;
-            App.saveData(data);
-        }
-    },
+    processHint: (reqId, status) => { dbRef.child(`hintRequests/${reqId}/status`).set(status); },
 
     cancelHint: (reqId) => {
-        const data = App.getData();
-        const req = data.hintRequests[reqId];
-        if (req && req.status === 'pending') {
-            req.status = 'cancelled';
-            const g = data.groups[req.group];
-            if (g) {
-                if (g.hintCount > 0) g.hintCount--;
-                g.usedHints = (g.usedHints || []).filter(h => h !== req.type);
+        dbRef.child(`hintRequests/${reqId}`).once('value').then(snap => {
+            const req = snap.val();
+            if(req && req.status === 'pending') {
+                let updates = {};
+                updates[`hintRequests/${reqId}/status`] = 'cancelled';
+                const gRef = dbRef.child(`groups/${req.group}`);
+                gRef.once('value').then(gSnap => {
+                    let g = gSnap.val();
+                    if(g) {
+                        updates[`groups/${req.group}/hintCount`] = Math.max(0, (g.hintCount || 0) - 1);
+                        updates[`groups/${req.group}/usedHints`] = (g.usedHints || []).filter(h => h !== req.type);
+                        dbRef.update(updates);
+                    }
+                });
             }
-            App.saveData(data);
-        }
+        });
     },
 
     addHintOpportunity: () => {
-        const data = App.getData();
-        for(let key in data.groups) {
-            if(data.groups[key].hintCount > 0) {
-                data.groups[key].hintCount--;
+        dbRef.child('groups').once('value').then(snap => {
+            let groups = snap.val();
+            let updates = {};
+            for(let key in groups) {
+                if(groups[key].hintCount > 0) updates[`groups/${key}/hintCount`] = groups[key].hintCount - 1;
             }
-        }
-        App.saveData(data);
+            dbRef.update(updates);
+        });
     },
 
-    markHintAlerted: (reqId) => {
-        const data = App.getData();
-        if(data.hintRequests[reqId]) {
-            data.hintRequests[reqId].alerted = true;
-            App.saveData(data);
-        }
-    },
+    markHintAlerted: (reqId) => { dbRef.child(`hintRequests/${reqId}/alerted`).set(true); },
 
     getGroup: (groupId) => {
         const data = App.getData();
-        if (!data.groups[groupId]) {
-            data.groups[groupId] = { master: '', customName: '', members: [], membersData: {}, usedHints: [], hintCount: 0 };
-        }
-        if (!data.groups[groupId].usedHints) data.groups[groupId].usedHints = [];
-        if (typeof data.groups[groupId].hintCount === 'undefined') data.groups[groupId].hintCount = 0;
+        if (!data.groups[groupId]) data.groups[groupId] = { master: '', customName: '', members: {}, membersData: {}, usedHints: [], hintCount: 0 };
         return data.groups[groupId];
     },
     
+    // 🌟 데이터 덮어쓰기(set) 원천 차단 - 회원 접속 시 안전한 트리거 사용
     joinMember: (groupId, name) => {
-        const data = App.getData();
-        if (!data.groups[groupId]) {
-            data.groups[groupId] = { master: name, customName: '', members: [], membersData: {}, usedHints: [], hintCount: 0 };
-        }
-        if (!data.groups[groupId].members) data.groups[groupId].members = [];
-        if (!data.groups[groupId].membersData) data.groups[groupId].membersData = {};
-        if (!data.groups[groupId].usedHints) data.groups[groupId].usedHints = [];
-        if (typeof data.groups[groupId].hintCount === 'undefined') data.groups[groupId].hintCount = 0;
-
-        if (!data.groups[groupId].members.includes(name)) data.groups[groupId].members.push(name);
-        if (!data.groups[groupId].membersData[name]) data.groups[groupId].membersData[name] = { type: 'pen', data: '', color: '#ffffff', size: 5 };
-        if (!data.groups[groupId].master || !data.groups[groupId].members.includes(data.groups[groupId].master)) data.groups[groupId].master = name;
-        App.saveData(data);
+        const gRef = dbRef.child(`groups/${groupId}`);
+        gRef.child(`membersData/${name}`).update({ type: 'pen', data: '', color: '#ffffff', size: 5 });
+        gRef.child(`members/${name}`).set(true);
+        gRef.child('master').once('value').then(snap => {
+            if (!snap.val() || snap.val() === '') gRef.child('master').set(name);
+        });
     },
 
-    setMaster: (groupId, newMaster) => {
-        const data = App.getData();
-        if(data.groups[groupId]) { data.groups[groupId].master = newMaster; App.saveData(data); }
-    },
+    setMaster: (groupId, newMaster) => { dbRef.child(`groups/${groupId}/master`).set(newMaster); },
 
-    setGroupName: (groupId, customName) => {
-        const data = App.getData();
-        if (data.groups[groupId]) { data.groups[groupId].customName = customName; App.saveData(data); }
-    },
+    setGroupName: (groupId, customName) => { dbRef.child(`groups/${groupId}/customName`).set(customName); },
 
+    // 🌟 동시 그림/타이핑 시 덮어쓰기 데이터 파괴 오류의 핵심 원인 해결 (경로 타겟팅 업데이트)
     updateMemberBoard: (groupId, memberName, boardObj) => {
-        const data = App.getData();
-        if(!data.groups[groupId]) return;
-        if(!data.groups[groupId].membersData) data.groups[groupId].membersData = {};
-        if(!data.groups[groupId].membersData[memberName]) data.groups[groupId].membersData[memberName] = {};
-        data.groups[groupId].membersData[memberName] = { ...data.groups[groupId].membersData[memberName], ...boardObj };
-        App.saveData(data);
+        dbRef.child(`groups/${groupId}/membersData/${memberName}`).update(boardObj);
     },
 
     getAllGroups: () => App.getData().groups || {},
@@ -318,8 +241,8 @@ const App = {
     gradeAnswer: (correct, submitted) => {
         if (!correct || !submitted) return { rate: 0, html: '제출된 답이 없습니다.' };
         if (submitted.startsWith('data:image')) return { rate: 0, html: '📝 손글씨 모드 (자동채점 불가)' };
-        const cStr = correct.replace(/\s+/g, '');
-        let sStr = submitted.replace(/\s+/g, '');
+        const cStr = correct.replace(/\\s+/g, '');
+        let sStr = submitted.replace(/\\s+/g, '');
         if (sStr.length < cStr.length) sStr = sStr.padEnd(cStr.length, ' ');
         
         let correctCount = 0, htmlResult = '';
