@@ -5,25 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>[힌트] 놀토 전광판</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=31">
+    <link rel="stylesheet" href="css/style.css?v=30">
 </head>
 <body class="tv-bg">
 
     <div class="tv-board" id="tv-main">
-        <h1 class="tv-round-title" id="tv-round-display">Round 1 🪄</h1>
+        <h1 class="tv-round-title" id="tv-round-display">Round 1🪄</h1>
         
+        <!-- 🌟 화면 스크롤 상관없이 무조건 화면 상단에 고정되도록 fixed 변경 -->
         <div id="tv-countdown-number" class="hidden" style="position:fixed; top:50px; right:50px; font-size: 10rem; color: #f1c40f; text-shadow: 8px 8px 0 #d32f2f; font-weight:bold; animation: popIn 1s infinite; z-index:9999;">3</div>
 
         <div id="tv-word-container" class="tv-words"></div>
     </div>
 
+    <!-- 🌟 화면 스크롤 상관없이 무조건 화면 중앙 상단 고정 -->
     <div id="tv-toast" class="hidden" style="position:fixed; top:50px; left:50%; transform:translateX(-50%); background:#e74c3c; color:white; padding:15px 30px; font-size:2rem; font-weight:bold; border-radius:50px; z-index:9999; box-shadow:0 10px 20px rgba(0,0,0,0.5);">
         메시지
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="js/app.js?v=31"></script>
-    <script src="js/hint_app.js?v=31"></script>
+    <script src="js/app.js?v=30"></script>
+    <script src="js/hint_app.js?v=30"></script>
 </body>
 </html>
