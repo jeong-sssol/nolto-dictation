@@ -13,7 +13,7 @@ window.addEventListener('app-sync', () => {
     if (settings.currentRound !== hintCurrentRound || currentAns !== hintAnsStr) {
         hintCurrentRound = settings.currentRound;
         hintAnsStr = currentAns;
-        document.getElementById('tv-round-display').innerText = `Round ${hintCurrentRound} (힌트 모드)`;
+        document.getElementById('tv-round-display').innerText = `Round ${hintCurrentRound} 🪄`;
         renderHintBoard();
     }
 
