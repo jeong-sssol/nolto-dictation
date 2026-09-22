@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>학생 모드</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=30">
+    <link rel="stylesheet" href="css/style.css?v=31">
 </head>
 <body>
     <div id="login-modal" class="modal active">
@@ -18,7 +18,7 @@
         </div>
     </div>
 
-    <!-- 🌟 학생 힌트 주문창 (버튼 일체형) -->
+    <!-- 🌟 학생 힌트 주문창 -->
     <div id="hint-modal" class="modal hidden">
         <div class="modal-content" style="width: 500px;">
             <h2 style="color: #1976d2;">🛎️ 힌트 요청하기</h2>
@@ -28,7 +28,6 @@
                 <button id="btn-hint-전체 띄어쓰기" onclick="handleHintClick('전체 띄어쓰기')" style="background:#27ae60;">전체 띄어쓰기</button>
                 <button id="btn-hint-한 글자 보기" onclick="handleHintClick('한 글자 보기')" style="background:#8e44ad;">한 글자 보기</button>
                 <button id="btn-hint-초성 2개 보기" onclick="handleHintClick('초성 2개 보기')" style="background:#f39c12;">초성 2개 보기</button>
-                <!-- 🌟 3초 보기 텍스트를 유동적으로 바꾸기 위해 유지 -->
                 <button id="btn-hint-3초 보기" onclick="handleHintClick('3초 보기')" style="background:#e74c3c;">전체 n초 보기</button>
                 <button id="btn-hint-오답수 알려주기" onclick="handleHintClick('오답수 알려주기')" style="background:#34495e;">오답수 알려주기</button>
             </div>
@@ -103,7 +102,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="js/app.js?v=30"></script>
+    <script src="js/app.js?v=31"></script>
 
     <script>
         let myGroup = '', myName = '', isMaster = false, isDrawing = false, mode = 'pen';
@@ -197,19 +196,20 @@
                     btn.style.opacity = '1'; 
                     btn.style.background = '#c0392b'; 
                     btn.innerText = `⏳ ${dispText} 대기 중 (클릭 시 취소)`;
-                    btn.onclick = () => { cancelMyHint(myPendingReqs[type]); };
                 } else if(usedHints.includes(type)) {
                     // 이미 사용함
                     btn.style.opacity = '0.5'; 
                     btn.style.background = defaultHintColors[type];
                     btn.innerText = `${dispText} (사용완료)`;
-                    btn.onclick = () => { alert("이미 사용한 힌트입니다."); };
+                } else if (myPendingHintReqId) {
+                    btn.style.opacity = '0.5'; 
+                    btn.style.background = defaultHintColors[type];
+                    btn.innerText = dispText;
                 } else {
                     // 선택 가능
                     btn.style.opacity = '1'; 
                     btn.style.background = defaultHintColors[type];
                     btn.innerText = dispText;
-                    btn.onclick = () => { submitNewHint(type, totalUsed, limit); };
                 }
             });
 
@@ -218,11 +218,31 @@
 
         function closeHintModal() { document.getElementById('hint-modal').classList.add('hidden'); }
 
-        function submitNewHint(hintType, totalUsed, limit) {
-            if (totalUsed >= limit) {
+        function handleHintClick(hintType) {
+            const reqs = App.getHintRequests();
+            if (myPendingHintReqId && reqs[myPendingHintReqId]?.type === hintType) {
+                App.cancelHint(myPendingHintReqId);
+                myPendingHintReqId = null;
+                alert("힌트 요청을 취소했습니다. 차감된 횟수가 복구되었습니다.");
+                openHintModal();
+                return;
+            }
+
+            if (myPendingHintReqId) {
+                return alert("이미 대기 중인 힌트가 있습니다. 취소 후 다른 힌트를 선택하세요.");
+            }
+
+            const settings = App.getSettings();
+            const groupData = App.getGroup(myGroup);
+            const limit = settings.hintLimit || 1;
+
+            if(groupData.hintCount >= limit) {
                 return alert(`❌ 배정된 힌트 횟수(${limit}회)를 모두 사용했습니다.\n(선생님이 추가 기회를 주시면 쓸 수 있습니다!)`);
             }
-            
+            if((groupData.usedHints||[]).includes(hintType)) {
+                return alert(`❌ [${hintType}] 힌트는 이미 사용하셨습니다.`);
+            }
+
             let param = '';
             if (hintType === '한 글자 보기') {
                 param = prompt("몇 번 글자를 보시겠습니까? (숫자 1개만 입력)");
@@ -240,17 +260,11 @@
                 }
             }
 
-            App.orderHint(myGroup, hintType, param);
+            const reqId = App.orderHint(myGroup, hintType, param);
+            myPendingHintReqId = reqId;
+            
             alert(`✅ 힌트 요청이 선생님께 전송되었습니다!`);
-            openHintModal(); // 화면 갱신
-        }
-
-        function cancelMyHint(reqId) {
-            if(confirm("이 힌트 요청을 취소하시겠습니까?\n차감된 횟수가 복구됩니다.")) {
-                App.cancelHint(reqId);
-                alert("취소되었습니다.");
-                openHintModal();
-            }
+            openHintModal(); 
         }
 
         function setMode(newMode) {
@@ -287,7 +301,7 @@
         }
 
         function clearBoard() {
-            if (viewTarget !== 'me') return alert("내 받쓰판만 지울 수 있습니다.");
+            if (viewTarget !== 'me') return alert("내 화면일 때만 지울 수 있습니다.");
             if (isBoardLocked()) return alert("현재 작성 시간이 종료되었거나 잠금 상태입니다.");
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             textBoard.value = '';

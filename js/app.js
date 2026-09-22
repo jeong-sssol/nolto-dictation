@@ -175,7 +175,7 @@ const App = {
         App.saveData(data);
     },
 
-    // 🌟 제출판 및 힌트 전체 초기화 (경합 방지 통합 함수)
+    // 🌟 완전 초기화 (새로운 놀토)
     clearBoardsAndHints: () => {
         dbRef.once('value').then((snapshot) => {
             let data = snapshot.val();
@@ -190,9 +190,37 @@ const App = {
                     if(data.groups[key].membersData) {
                         for(let member in data.groups[key].membersData) {
                             data.groups[key].membersData[member].data = '';
-                            data.groups[key].membersData[member].type = 'pen'; // 툴 초기화
+                            data.groups[key].membersData[member].type = 'pen'; 
                         }
                     }
+                }
+            }
+            data.hintRequests = { "dummy": { dummy: true } };
+            dbRef.set(data);
+        });
+    },
+
+    // 🌟 다음 반 수업 준비 (설정 유지 + 학생/칠판만 리셋)
+    resetForNextClass: () => {
+        dbRef.once('value').then((snapshot) => {
+            let data = snapshot.val();
+            if(!data) return;
+            
+            // 라운드 및 진행 상태 초기화 (노래, 정답 설정은 유지)
+            if(data.settings) {
+                data.settings.currentRound = 1;
+                data.settings.isLocked = false;
+                data.settings.timerEnd = null;
+                data.settings.clearTrigger = Date.now();
+                data.settings.revealTrigger = 0;
+                data.settings.hideAllTrigger = 0;
+                data.settings.audioCommand = null;
+            }
+            
+            // 학생 목록, 제출판, 힌트 내역 완전 초기화
+            if(data.groups) {
+                for(let key in data.groups) {
+                    data.groups[key] = { master: '', customName: '', members: [], membersData: {}, usedHints: [], hintCount: 0 };
                 }
             }
             data.hintRequests = { "dummy": { dummy: true } };
