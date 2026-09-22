@@ -175,16 +175,17 @@ const App = {
         App.saveData(data);
     },
 
-    // 🌟 안전하고 직관적인 동기식 리셋
+    // 🌟 제출판 내용 지우기 (Firebase 빈 객체 삭제 방어 로직 적용)
     clearBoardsAndHints: () => {
         const data = App.getData();
         data.settings.clearTrigger = Date.now();
         for(let key in data.groups) {
+            if(key === '0') continue;
             data.groups[key].usedHints = [];
             data.groups[key].hintCount = 0;
             if(data.groups[key].membersData) {
                 for(let member in data.groups[key].membersData) {
-                    data.groups[key].membersData[member].data = '';
+                    data.groups[key].membersData[member].data = ''; 
                     data.groups[key].membersData[member].type = 'pen'; 
                 }
             }
@@ -193,7 +194,7 @@ const App = {
         App.saveData(data);
     },
 
-    // 🌟 안전하고 직관적인 동기식 다음 반 리셋
+    // 🌟 안전하고 완벽한 다음 반 수업 준비 (학생 데이터 100% 완전 백지화, 세팅은 유지)
     resetForNextClass: () => {
         const data = App.getData();
         if(data.settings) {
@@ -205,9 +206,8 @@ const App = {
             data.settings.hideAllTrigger = 0;
             data.settings.audioCommand = null;
         }
-        for(let key in data.groups) {
-            data.groups[key] = { master: '', customName: '', members: [], membersData: {}, usedHints: [], hintCount: 0 };
-        }
+        // 그룹 자체를 날려버려서 완벽한 초기화 보장 (오류 원천 차단)
+        data.groups = { "0": { dummy: true } };
         data.hintRequests = { "dummy": { dummy: true } };
         App.saveData(data);
     },

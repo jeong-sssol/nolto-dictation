@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>교사 모드 - 놀토 받쓰</title>
+    <title>[교사]놀토 받쓰</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=33">
+    <link rel="stylesheet" href="css/style.css?v=35">
 </head>
 <body class="teacher-bg">
     <header class="teacher-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; flex-wrap:wrap; gap:10px;">
@@ -74,6 +74,7 @@
             
             <div style="margin-top:15px; display:flex; align-items:center; gap:5px;">
                 <label style="font-weight:bold; font-size:1.1rem;">⚡ 촤라락 속도 (초): </label>
+                <!-- 🌟 정밀한 입력을 위해 슬라이더에서 텍스트 입력창으로 변경 -->
                 <input type="number" id="reveal-speed" min="0.01" max="2.0" step="0.01" value="0.2" class="time-input" onchange="App.saveSettingsOnly();" style="width:70px;">
             </div>
         </div>
@@ -88,10 +89,10 @@
         </div>
         
         <div class="sidebar-section">
-            <h3 style="color:#27ae60;">💡 힌트 및 칠판 제어</h3>
+            <h3 style="color:#27ae60;">💡 힌트 및 받쓰판 제어</h3>
             
             <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                <label style="font-weight:bold;">모둠별 힌트 횟수:</label>
+                <label style="font-weight:bold;">모둠당 힌트 제한(누적):</label>
                 <div><input type="number" id="set-hint-limit" value="1" min="1" max="10" style="width:50px; text-align:center;" onchange="App.saveSettingsOnly()"> 회</div>
             </div>
             <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
@@ -104,7 +105,8 @@
             <label style="display:block; margin-bottom:5px;">CCTV 글자 크기: <span id="font-size-val"></span>px</label>
             <input type="range" id="cctv-font-size" min="15" max="60" value="30" onchange="App.saveSettingsOnly(); renderCCTV();" style="width:100%; margin-bottom:15px;">
 
-            <button onclick="executeClearAll()" style="background: #e67e22; color:white; width:100%; margin-bottom:10px; font-weight:bold; border:none; padding:12px; border-radius:5px; cursor:pointer;">🧽 받쓰판 지우기 (+힌트리셋)</button>
+            <!-- 🌟 동기식 안정적 리셋 기능 적용 완료 -->
+            <button onclick="executeClearAll()" style="background: #e67e22; color:white; width:100%; margin-bottom:10px; font-weight:bold; border:none; padding:12px; border-radius:5px; cursor:pointer;">🧽 전체 받쓰판 지우기 (+힌트리셋)</button>
             <button onclick="resetNextClassData()" style="width:100%; margin-bottom:10px; background:#f39c12; color:white; font-weight:bold; border:none; padding:12px; border-radius:5px; cursor:pointer;">🔄 다음 반 수업 준비 (학생/받쓰판 초기화)</button>
         </div>
     </div>
@@ -139,7 +141,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="js/app.js?v=33"></script>
+    <script src="js/app.js?v=35"></script>
 
     <script>
         const cctvContainer = document.getElementById('cctv-container');
@@ -182,6 +184,7 @@
             const pwContainer = document.getElementById('group-pw-container');
             let pwHtml = '';
             for(let i=1; i<=groupCount; i++) {
+                // 🌟 모둠 비번 폭 65px로 확장 완료
                 pwHtml += `<label style="margin:5px;">${i}조: <input type="text" id="pw-${i}" value="${existingPws[i]||''}" style="width:65px; padding:5px; text-align:center;"></label>`;
             }
             pwContainer.innerHTML = pwHtml;
@@ -190,6 +193,7 @@
             let ansHtml = '';
             for(let i=1; i<=roundCount; i++) {
                 const t = existingTimings[i] || {iSM:0, iSS:0, iEM:0, iES:0, aSM:0, aSS:0, aEM:0, aES:0};
+                // 🌟 인트로, 정답 간격 55px로 정렬 완벽 적용
                 ansHtml += `
                     <div style="background:#fff; padding:10px; border-radius:5px; border:1px solid #ccc;">
                         <strong>${i}R 정답:</strong> <input type="text" id="ans-${i}" value="${existingAns[i]||''}" style="width:80%; padding:5px; margin-bottom:5px;"><br>
@@ -252,32 +256,37 @@
             }
         }
 
+        // 🌟 완전 초기화 (새로운 놀토)
         function resetAllData() {
-            if(confirm("노래와 정답 세팅을 포함한 모든 데이터가 완전 초기화됩니다. 정말 새 수업을 준비하시겠습니까?")) {
+            if(confirm("노래와 정답 세팅을 포함한 모든 데이터가 초기화됩니다. 정말 새 수업을 준비하시겠습니까?")) {
                 App.factoryReset();
                 setTimeout(() => location.reload(), 500);
             }
         }
 
-        function executeClearAll() {
-            if(confirm('학생 받쓰판 지우기 및 힌트 사용내역을 모두 초기화하시겠습니까?')) {
-                App.clearBoardsAndHints(); 
-                alert('초기화되었습니다.');
-            }
-        }
-        
+        // 🌟 다음 반 리셋 (학생 데이터만 비우기)
         function resetNextClassData() {
-            if(confirm("정답 및 노래 설정은 유지하고, 학생 목록과 제출판만 싹 비우시겠습니까? (다음 반 수업용)")) {
+            if(confirm("정답 및 노래 설정은 유지하고, 학생 목록과 받쓰판만 비우시겠습니까? (다음 반 수업용)")) {
                 App.resetForNextClass();
                 setTimeout(() => location.reload(), 500);
             }
         }
 
+        function executeClearAll() {
+            if(confirm('받쓰판 지우기 및 힌트 사용내역을 모두 초기화하시겠습니까?')) {
+                App.clearBoardsAndHints(); 
+                alert('초기화되었습니다.');
+            }
+        }
+
         function updateDashboardControls() {
             const settings = App.getSettings();
+            
+            // 🌟 대시보드 세팅값 리셋 방지
             document.getElementById('set-admin-pw').value = settings.adminPassword || '1234';
             document.getElementById('set-groups').value = settings.groupCount || 6;
             document.getElementById('set-total-rounds').value = settings.totalRounds || 3;
+            
             const roundSelect = document.getElementById('active-round-select');
             roundSelect.innerHTML = '';
             for(let i=1; i<=settings.totalRounds; i++) {
@@ -365,8 +374,7 @@
         }
 
         function cancelTeacherHint(reqId) {
-            // 🌟 문법 오류(줄바꿈) 완벽 제거
-            if(confirm("이 힌트 요청을 거절(취소)하시겠습니까?\n학생의 힌트 차감 횟수가 복구됩니다.")) {
+            if(confirm("이 힌트 요청을 거절(취소)하시겠습니까? 학생의 힌트 차감 횟수가 복구됩니다.")) {
                 App.cancelHint(reqId);
             }
         }
@@ -417,7 +425,7 @@
             const now = Date.now();
             for(let key in hints) {
                 if(hints[key].status === 'pending' && (now - hints[key].ts > 60000) && !hints[key].alerted) {
-                    alert(`🚨 [${hints[key].group}모둠] 힌트 요청이 1분 이상 지연되었습니다!`);
+                    alert(`🚨 [${hints[key].group}모둠] 힌트 주문이 1분 이상 지연되었습니다!`);
                     App.markHintAlerted(key);
                 }
             }
@@ -429,6 +437,7 @@
             renderHintQueue();
         });
 
+        // 🌟 방탄 CCTV 렌더링 로직 (데이터 증발시에도 절대 안 뻗게 방어코드 3중 적용)
         function renderCCTV() {
             const settings = App.getSettings();
             const groups = App.getAllGroups();
@@ -440,16 +449,17 @@
             cctvContainer.innerHTML = '';
 
             for (let i = 1; i <= settings.groupCount; i++) {
-                const gData = groups[i] || { master: '', membersData: {}, customName: '', hintCount:0, members: [] };
-                const masterName = gData.master;
-                const mData = gData.membersData[masterName] || { type: 'pen', data: '', color: '#ffffff' };
+                const gData = groups[i] || {};
+                const masterName = gData.master || '';
+                const membersDataObj = gData.membersData || {};
+                const mData = membersDataObj[masterName] || { type: 'pen', data: '', color: '#ffffff' };
                 const hintUsedText = gData.hintCount > 0 ? ` (💡${gData.hintCount}회)` : '';
                 
                 const grade = App.gradeAnswer(currentAns, mData.data);
                 
                 let boardContent = '';
                 if (mData.type === 'text') {
-                    boardContent = `<div class="board-text-overlay" style="font-size:${tFontSize}px; color:${mData.color || '#fff'}; word-break: break-all; white-space: pre-wrap;">${mData.data}</div>`;
+                    boardContent = `<div class="board-text-overlay" style="font-size:${tFontSize}px; color:${mData.color || '#fff'}; word-break: break-all; white-space: pre-wrap;">${mData.data || ''}</div>`;
                 } else if (mData.data) {
                     boardContent = `<img src="${mData.data}" style="width:100%; height:100%; object-fit:contain;">`;
                 }
@@ -457,7 +467,7 @@
                 const customNameDisplay = gData.customName ? ` <span style="color:#e67e22">[${gData.customName}]</span>` : '';
 
                 let masterOptions = `<option value="">방장 없음</option>`;
-                if(gData.members) {
+                if(gData.members && Array.isArray(gData.members)) {
                     gData.members.forEach(m => {
                         masterOptions += `<option value="${m}" ${m===masterName?'selected':''}>${m}</option>`;
                     });

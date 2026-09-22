@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>학생 모드</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=33">
+    <link rel="stylesheet" href="css/style.css?v=35">
 </head>
 <body>
     <div id="login-modal" class="modal active">
@@ -18,7 +18,7 @@
         </div>
     </div>
 
-    <!-- 🌟 학생 힌트 요청창 -->
+    <!-- 🌟 학생 힌트 주문창 -->
     <div id="hint-modal" class="modal hidden">
         <div class="modal-content" style="width: 500px;">
             <h2 style="color: #1976d2;">🛎️ 힌트 요청하기</h2>
@@ -72,7 +72,7 @@
                 <button id="btn-pen" class="active" onclick="setMode('pen')">🖊️ 펜</button>
                 <button id="btn-eraser" onclick="setMode('eraser')">🧽 지우개</button>
                 <button id="btn-text" onclick="setMode('text')">⌨️ 텍스트(T)</button>
-                <button onclick="clearBoard()">🗑️ 내 판 지우기</button>
+                <button onclick="clearBoard()">🗑️ 받쓰판 지우기</button>
             </div>
             
             <div class="tool-settings" style="margin-left:20px;">
@@ -102,7 +102,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="js/app.js?v=33"></script>
+    <script src="js/app.js?v=35"></script>
 
     <script>
         let myGroup = '', myName = '', isMaster = false, isDrawing = false, mode = 'pen';
@@ -175,7 +175,6 @@
             let pendingCount = 0;
             let myPendingReqs = {};
 
-            // 내 조의 대기중인 힌트 파악
             for (let reqId in allReqs) {
                 if (allReqs[reqId].group == myGroup && allReqs[reqId].status === 'pending') {
                     myPendingReqs[allReqs[reqId].type] = reqId;
@@ -192,12 +191,10 @@
                 let dispText = type === '3초 보기' ? `전체 ${hSec}초 보기` : type;
                 
                 if (myPendingReqs[type]) {
-                    // 현재 대기 중
                     btn.style.opacity = '1'; 
                     btn.style.background = '#c0392b'; 
                     btn.innerText = `⏳ ${dispText} 대기 중 (클릭 시 취소)`;
                 } else if(usedHints.includes(type)) {
-                    // 이미 사용함
                     btn.style.opacity = '0.5'; 
                     btn.style.background = defaultHintColors[type];
                     btn.innerText = `${dispText} (사용완료)`;
@@ -206,7 +203,6 @@
                     btn.style.background = defaultHintColors[type];
                     btn.innerText = dispText;
                 } else {
-                    // 선택 가능
                     btn.style.opacity = '1'; 
                     btn.style.background = defaultHintColors[type];
                     btn.innerText = dispText;
@@ -248,17 +244,15 @@
                 param = prompt("몇 번 글자를 보시겠습니까? (숫자 1개만 입력)");
                 if (!param) return alert("요청이 취소되었습니다.");
                 param = param.trim();
-                // 🌟 정규표현식 이스케이프 수정
                 if (!/^\d+$/.test(param)) {
-                    return alert("❌ 오류: 띄어쓰기나 기호 없이 숫자 딱 하나만 입력해주세요! (예: 5)");
+                    return alert("❌ 띄어쓰기나 기호 없이 숫자 딱 하나만 입력해주세요! (예: 5)");
                 }
             } else if (hintType === '초성 2개 보기') {
-                // 🌟 줄바꿈 이스케이프 수정
                 param = prompt("초성을 확인할 두 글자의 번호를 쉼표로 구분하여 입력하세요.\n(예: 3, 5)");
                 if (!param) return alert("입력이 취소되었습니다.");
                 let parts = param.split(',').map(s => s.trim()).filter(s => s !== '');
                 if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) {
-                    return alert("❌ 오류: 쉼표(,)를 기준으로 숫자 딱 두 개만 입력해주세요! (예: 3, 5)");
+                    return alert("❌ 쉼표(,)를 기준으로 숫자 딱 두 개만 입력해주세요! (예: 3, 5)");
                 }
             }
 
@@ -303,7 +297,7 @@
         }
 
         function clearBoard() {
-            if (viewTarget !== 'me') return alert("내 화면일 때만 지울 수 있습니다.");
+            if (viewTarget !== 'me') return alert("내 받쓰판일 때만 지울 수 있습니다.");
             if (isBoardLocked()) return alert("현재 작성 시간이 종료되었거나 잠금 상태입니다.");
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             textBoard.value = '';
@@ -356,10 +350,13 @@
             const viewSelect = document.getElementById('view-select');
             const memberSelect = document.getElementById('member-list');
             
-            let viewHtml = `<option value="me">👉 내 화면 작성하기</option>`;
+            let viewHtml = `<option value="me">👉 받쓰판 작성하기</option>`;
             let memberHtml = '';
 
-            groupData.members.forEach(m => {
+            // 🔥 버그 방지: members가 배열이 아닐 경우 빈 배열로 처리
+            const safeMembers = Array.isArray(groupData.members) ? groupData.members : [];
+
+            safeMembers.forEach(m => {
                 if(m !== myName) {
                     viewHtml += `<option value="${m}">${(m === groupData.master) ? `👑 ${m} (방장)` : `👀 ${m}`}</option>`;
                     memberHtml += `<option value="${m}">${m}</option>`;
@@ -436,10 +433,11 @@
                 canvas.style.pointerEvents = 'none'; textBoard.disabled = true;
                 readOnlyMsg.classList.remove('hidden');
 
-                const targetData = groupData.membersData[viewTarget] || { type: 'pen', data: '', color: '#fff', size: 5 };
+                const membersDataObj = groupData.membersData || {};
+                const targetData = membersDataObj[viewTarget] || { type: 'pen', data: '', color: '#fff', size: 5 };
                 if (targetData.type === 'text') {
                     sharedImg.classList.add('hidden'); sharedText.classList.remove('hidden');
-                    sharedText.innerText = targetData.data; sharedText.style.color = targetData.color || '#ffffff';
+                    sharedText.innerText = targetData.data || ''; sharedText.style.color = targetData.color || '#ffffff';
                     sharedText.style.fontSize = (targetData.size * 2 + 30) + 'px';
                 } else {
                     sharedText.classList.add('hidden');
