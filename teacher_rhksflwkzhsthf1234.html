@@ -275,6 +275,9 @@
 
         function updateDashboardControls() {
             const settings = App.getSettings();
+            document.getElementById('set-admin-pw').value = settings.adminPassword || '1234';
+            document.getElementById('set-groups').value = settings.groupCount || 6;
+            document.getElementById('set-total-rounds').value = settings.totalRounds || 3;
             const roundSelect = document.getElementById('active-round-select');
             roundSelect.innerHTML = '';
             for(let i=1; i<=settings.totalRounds; i++) {
