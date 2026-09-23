@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>[학생] 놀토 받쓰</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=49">
+    <link rel="stylesheet" href="css/style.css?v=50">
 </head>
 <body>
     <div id="login-modal" class="modal active">
@@ -36,13 +36,12 @@
     </div>
 
     <div id="student-main" class="hidden">
-        <!-- 🌟 V49: Grid 기반 무적 레이아웃 도입 (완벽 중앙 고정 + 겹침 절대 불가) -->
+        <!-- 🌟 Grid 기반 무적 레이아웃 -->
         <header class="header" style="display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; min-width: 1050px; margin: 0 auto; height: 75px; padding: 0 20px; gap: 20px;">
             
             <!-- 왼쪽: 조, 이름, 변경버튼, 힌트요청 -->
             <div class="header-left" style="display: flex; align-items: center; gap: 8px; overflow: hidden; justify-content: flex-start;">
                 <h2 id="group-title" style="margin: 0; font-size: 1.6rem; flex-shrink: 0;"></h2>
-                <!-- 🌟 남는 공간만큼만 꽉 차고 넘치면 ... 처리 (gap 문제 원천 해결) -->
                 <span id="my-name-display" style="font-size:1.4rem; color:#333; font-weight:bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1; display: block;"></span>
                 
                 <button id="btn-edit-name" onclick="changeMyName()" style="height: 38px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; background:#e3f2fd; color:#1565c0; border:1px solid #90caf9; padding:0 10px; border-radius:5px; cursor:pointer; font-size:1.1rem; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05); flex-shrink: 0;">✏️ 이름 변경</button>
@@ -52,7 +51,7 @@
                 <button id="btn-hint" class="hidden" onclick="openHintModal()" style="height: 38px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; background:#1abc9c; color:white; border:none; padding:0 10px; border-radius:5px; cursor:pointer; font-size:1.1rem; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex-shrink: 0; margin:0;">🛎️ 힌트 요청</button>
             </div>
 
-            <!-- 중앙: 라운드, 타이머 (Grid로 완벽 중앙 고정) -->
+            <!-- 중앙: 라운드, 타이머 -->
             <div class="header-center" style="display: flex; align-items: center; justify-content: center; gap: 15px; white-space: nowrap;">
                 <span id="round-display" style="font-size: 1.8rem; color: #d32f2f; font-weight: bold;"></span>
                 <span id="timer-display" style="font-size: 2.5rem; color: #1976d2; font-weight: bold; font-variant-numeric: tabular-nums; width: 130px; text-align: left; display: inline-block;">⏱️ --:--</span>
@@ -114,7 +113,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="js/app.js?v=49"></script>
+    <script src="js/app.js?v=50"></script>
 
     <script>
         let myGroup = '', myName = '', isMaster = false, isDrawing = false, mode = 'pen';
