@@ -200,6 +200,27 @@ const App = {
             }
         });
     },
+    
+    // 🌟 V53: 인덱스를 받아서 특정 힌트만 딱 삭제하고 복구시키는 함수
+    executeHintCancel: (groupId, hintIndex) => {
+        const gRef = dbRef.child(`groups/${groupId}`);
+        gRef.once('value').then(gSnap => {
+            let g = gSnap.val();
+            if(g && g.hintCount > 0 && g.usedHints && g.usedHints.length > hintIndex) {
+                let canceledHint = g.usedHints[hintIndex];
+                let newUsedHints = [...g.usedHints];
+                newUsedHints.splice(hintIndex, 1);
+                
+                let updates = {};
+                updates[`groups/${groupId}/hintCount`] = Math.max(0, g.hintCount - 1);
+                updates[`groups/${groupId}/usedHints`] = newUsedHints;
+                
+                dbRef.update(updates).then(() => {
+                    alert(`✅ ${groupId}조의 [${canceledHint}] 힌트가 취소되고 기회가 복구되었습니다.`);
+                });
+            }
+        });
+    },
 
     addHintOpportunity: () => {
         dbRef.child('groups').once('value').then(snap => {

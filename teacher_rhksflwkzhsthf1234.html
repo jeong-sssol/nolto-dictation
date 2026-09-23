@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>[교사] 놀토 받쓰</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=50">
+    <link rel="stylesheet" href="css/style.css?v=53">
 </head>
 <body class="teacher-bg">
     <header class="teacher-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; flex-wrap:wrap; gap:10px;">
@@ -27,7 +27,6 @@
                 <button onclick="App.stopTimer()" style="background: #7f8c8d; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-weight:bold;">⏹ 정지</button>
             </div>
 
-            <!-- 🌟 교사모드 버튼 높이 완벽 통일 -->
             <div style="display: flex; gap: 10px; align-items: center;">
                 <button id="btn-lock" style="padding: 0 15px; font-size:1.1rem; font-weight:bold; border:none; border-radius:5px; cursor:pointer; height: 42px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;"></button>
                 <button onclick="toggleSidebar()" style="background: #e67e22; border: none; padding: 0 15px; border-radius:5px; font-size: 1.2rem; cursor: pointer; color:white; font-weight:bold; height: 42px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;">🧰 진행 도구</button>
@@ -137,12 +136,22 @@
             <button onclick="resetAllData()" style="width:100%; margin-top:20px; background:#e74c3c; color:white; font-weight:bold; border:none; padding:12px; border-radius:5px; cursor:pointer;">🚨 완전 초기화 (새로운 놀토 세팅)</button>
         </div>
     </div>
+    
+    <!-- 🌟 V53: 힌트 복구 전용 모달창 추가 (CCTV 영역 밖에 위치하여 동기화 튕김 완벽 차단) -->
+    <div id="hint-cancel-modal" class="modal hidden" style="z-index: 3000;">
+        <div class="modal-content" style="width: 400px;">
+            <h2 style="color: #e74c3c;">🔄 <span id="cancel-group-name"></span> 힌트 복구</h2>
+            <p>취소할 힌트를 선택하세요.<br>(기회가 즉시 1회 복구됩니다)</p>
+            <div id="cancel-hint-list" style="display:flex; flex-direction:column; gap:10px; margin-top:20px;"></div>
+            <button onclick="document.getElementById('hint-cancel-modal').classList.add('hidden')" style="margin-top:20px; background:#95a5a6;">닫기</button>
+        </div>
+    </div>
 
     <div class="cctv-grid" id="cctv-container"></div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="js/app.js?v=50"></script>
+    <script src="js/app.js?v=53"></script>
 
     <script>
         const cctvContainer = document.getElementById('cctv-container');
@@ -410,6 +419,37 @@
             }
         }
 
+        // 🌟 V53: 힌트 선택 모달창 띄우기 함수 (DOM 보호)
+        function openHintCancelModal(groupId) {
+            const groupData = App.getGroup(groupId);
+            if(groupData.hintCount > 0 && groupData.usedHints && groupData.usedHints.length > 0) {
+                document.getElementById('cancel-group-name').innerText = `${groupId}조`;
+                const listContainer = document.getElementById('cancel-hint-list');
+                listContainer.innerHTML = '';
+                
+                groupData.usedHints.forEach((hint, idx) => {
+                    const btn = document.createElement('button');
+                    btn.innerText = `❌ [${hint}] 취소하기`;
+                    btn.style.background = '#e74c3c';
+                    btn.style.color = 'white';
+                    btn.style.padding = '10px';
+                    btn.style.border = 'none';
+                    btn.style.borderRadius = '5px';
+                    btn.style.fontSize = '1.1rem';
+                    btn.style.fontWeight = 'bold';
+                    btn.style.cursor = 'pointer';
+                    btn.onclick = () => {
+                        App.executeHintCancel(groupId, idx);
+                        document.getElementById('hint-cancel-modal').classList.add('hidden');
+                    };
+                    listContainer.appendChild(btn);
+                });
+                document.getElementById('hint-cancel-modal').classList.remove('hidden');
+            } else {
+                alert("❌ 취소할 힌트 내역이 없습니다.");
+            }
+        }
+
         function renderHintQueue() {
             const hints = App.getHintRequests();
             const list = document.getElementById('hint-list');
@@ -486,7 +526,13 @@
                 for (let i = 1; i <= settings.groupCount; i++) {
                     cctvContainer.innerHTML += `
                         <div class="cctv-card" id="cctv-card-${i}">
-                            <h3 id="cctv-title-${i}" style="margin:5px 0;"></h3>
+                            <div style="display:flex; align-items:center; justify-content:center; gap:5px; margin:5px 0;">
+                                <h3 id="cctv-name-${i}" style="margin:0; font-size:1.4rem;">${i} 조</h3>
+                                <span id="cctv-hint-${i}" style="font-size:1.1rem; color:#8e44ad;"></span>
+                                <span style="font-size:1.1rem; color:#d32f2f;">(방장:</span>
+                                <select id="cctv-master-${i}" class="fixed-select-sm" onchange="App.setMaster('${i}', this.value)" style="font-size:0.9rem; padding:2px; border-radius:3px; background:#f1c40f; font-weight:bold; border:none; outline:none; cursor:pointer;"></select>
+                                <span style="font-size:1.1rem; color:#d32f2f;">)</span>
+                            </div>
                             <div class="cctv-board" id="cctv-board-${i}"></div>
                             <div class="correct-rate" id="cctv-rate-${i}"></div>
                             <div id="cctv-html-${i}" style="font-size:1.2rem; font-weight:bold; margin-top:5px; word-break: break-all; white-space: pre-wrap;"></div>
@@ -501,23 +547,24 @@
                 const membersDataObj = gData.membersData || {};
                 const mData = membersDataObj[masterName] || { type: 'pen', data: '', color: '#ffffff' };
                 
-                // 🌟 (💡 0 / 1회) 형식 고정
-                const hintUsedText = `(💡 ${gData.hintCount || 0} / ${settings.hintLimit || 1}회)`;
+                // 🌟 V53: openHintCancelModal 호출로 팝업 모달 띄우기
+                const hintEl = document.getElementById(`cctv-hint-${i}`);
+                let hintStr = `(💡 ${gData.hintCount || 0} / ${settings.hintLimit || 1}회) <span style="color:#e74c3c; cursor:pointer;" onclick="openHintCancelModal('${i}')" title="힌트 취소 및 복구">[↩️]</span>`;
+                if (hintEl.innerHTML !== hintStr) hintEl.innerHTML = hintStr;
                 
                 const grade = App.gradeAnswer(currentAns, mData.data);
                 
-                // 🌟 투명한 빈칸 처리
                 let masterOptions = `<option value="" disabled hidden ${!masterName ? 'selected' : ''}> </option>`;
                 const safeMembers = Object.keys(gData.members || {}).filter(k => k !== 'dummy');
                 safeMembers.forEach(m => {
                     masterOptions += `<option value="${m}" ${m===masterName?'selected':''}>${m}</option>`;
                 });
                 
-                const masterSelectHtml = `<select class="fixed-select-sm" onchange="App.setMaster('${i}', this.value)" style="font-size:0.9rem; padding:2px; border-radius:3px; background:#f1c40f; font-weight:bold; border:none; outline:none; cursor:pointer; margin-left:5px;">${masterOptions}</select>`;
-
-                const newTitle = `${i} 조 <span style="font-size:1.1rem; color:#8e44ad;">${hintUsedText}</span> <span style="font-size:1.1rem; color:#d32f2f;">(방장: ${masterSelectHtml})</span>`;
-                const titleEl = document.getElementById(`cctv-title-${i}`);
-                if(titleEl.innerHTML !== newTitle) titleEl.innerHTML = newTitle;
+                const masterSelect = document.getElementById(`cctv-master-${i}`);
+                if (document.activeElement !== masterSelect) {
+                    if(masterSelect.innerHTML !== masterOptions) masterSelect.innerHTML = masterOptions;
+                    if(masterSelect.value !== masterName) masterSelect.value = masterName;
+                }
 
                 const newRate = currentAns 
                     ? (grade.totalCount !== undefined && grade.totalCount > 0 ? `정답률: ${grade.rate}% (${grade.correctCount}/${grade.totalCount})` : '제출 대기 중') 

@@ -33,7 +33,7 @@ body { margin: 0; padding: 0; background-color: #f4f1ea; color: #333; min-width:
 .badge { background: #ffd700; border-radius: 5px; color: black; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
 .wide-dropdown { min-width: 140px; padding: 5px; font-size: 1.1rem; border-radius: 5px; }
 
-/* 🌟 V50: 높이 찌그러짐 원복 및 너비 고정 동시 적용 */
+/* 🌟 V49: 높이 찌그러짐 원복 및 너비 고정 동시 적용 */
 .fixed-select { width: 170px; max-width: 170px; padding: 5px; font-size: 1.1rem; border-radius: 5px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; display: inline-block; vertical-align: middle; }
 .fixed-select-sm { width: 110px; max-width: 110px; padding: 5px; font-size: 1.1rem; border-radius: 5px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; display: inline-block; vertical-align: middle; }
 

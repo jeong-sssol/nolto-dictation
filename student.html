@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>[학생] 놀토 받쓰</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=50">
+    <link rel="stylesheet" href="css/style.css?v=53">
 </head>
 <body>
     <div id="login-modal" class="modal active">
@@ -113,7 +113,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="js/app.js?v=50"></script>
+    <script src="js/app.js?v=53"></script>
 
     <script>
         let myGroup = '', myName = '', isMaster = false, isDrawing = false, mode = 'pen';
@@ -276,13 +276,13 @@
 
             const reqId = App.orderHint(myGroup, hintType, param);
             myPendingHintReqId = reqId;
-            openHintModal(); // 즉시 갱신
+            openHintModal(); 
         }
 
         function cancelMyHint(reqId) {
             if(confirm("이 힌트 요청을 취소하시겠습니까? 차감된 횟수가 복구됩니다.")) {
                 App.cancelHint(reqId);
-                openHintModal(); // 즉시 갱신
+                openHintModal(); 
             }
         }
 
@@ -401,12 +401,12 @@
                 }
             });
 
-            if (viewSelect.innerHTML !== viewHtml) {
+            if (document.activeElement !== viewSelect && viewSelect.innerHTML !== viewHtml) {
                 let currentVal = viewSelect.value;
                 viewSelect.innerHTML = viewHtml;
                 viewSelect.value = currentVal || 'me';
             }
-            if (memberSelect.innerHTML !== memberHtml) {
+            if (document.activeElement !== memberSelect && memberSelect.innerHTML !== memberHtml) {
                 let currentVal = memberSelect.value;
                 memberSelect.innerHTML = memberHtml;
                 if(currentVal) memberSelect.value = currentVal;
