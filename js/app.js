@@ -90,7 +90,6 @@ const App = {
 
     getSettings: () => App.getData().settings,
     
-    // 🌟 덮어쓰기(set) 대신 안전하게 개별 데이터(update, set) 방식으로 전면 수정
     saveSettings: (adminPw, groupCount, passwords, totalRounds, answers, timings, hintLimit, tFontSize) => {
         dbRef.child('settings').update({
             adminPassword: adminPw, groupCount: groupCount, passwords: passwords,
@@ -103,13 +102,12 @@ const App = {
         const hintLimit = parseInt(document.getElementById('set-hint-limit').value) || 1;
         const teacherFontSize = document.getElementById('cctv-font-size').value;
         const revealSpeed = parseFloat(document.getElementById('reveal-speed').value);
-        const hintDuration = parseInt(document.getElementById('set-hint-duration').value) || 3;
+        const hintDuration = parseFloat(document.getElementById('set-hint-duration').value) || 3;
         dbRef.child('settings').update({ hintLimit, teacherFontSize, revealSpeed, hintDuration });
     },
 
     setCurrentRound: (round) => { dbRef.child('settings/currentRound').set(round); },
     setLock: (isLocked) => {
-        // 🌟 명시적/암묵적 잠금 해제 시, 타이머 데이터도 완벽하게 날려서 UI 동기화
         const updates = { isLocked: isLocked };
         if (!isLocked) updates.timerEnd = null; 
         dbRef.child('settings').update(updates);
@@ -124,7 +122,6 @@ const App = {
     triggerRevealAll: () => { dbRef.child('settings/revealTrigger').set(Date.now()); },
     triggerHideAll: () => { dbRef.child('settings/hideAllTrigger').set(Date.now()); },
 
-    // 🌟 안전하고 완벽한 일괄 삭제 로직
     clearBoardsAndHints: () => {
         dbRef.once('value').then((snapshot) => {
             let data = snapshot.val();
@@ -149,7 +146,6 @@ const App = {
         });
     },
 
-    // 🌟 다음 반 수업 준비 완전 분리 (그룹 빈칸으로 인한 에러 방지)
     resetForNextClass: () => {
         let updates = {
             'settings/currentRound': 1, 'settings/isLocked': false, 'settings/timerEnd': null,
@@ -164,7 +160,6 @@ const App = {
         const updates = {};
         updates[`hintRequests/${reqId}`] = { group: groupId, type: type, param: param, ts: Date.now(), status: 'pending', alerted: false };
         
-        // 트랜잭션 방식으로 힌트 사용 내역 증가
         const groupRef = dbRef.child(`groups/${groupId}`);
         groupRef.once('value').then(snap => {
             let gData = snap.val() || {};
@@ -201,7 +196,6 @@ const App = {
         });
     },
     
-    // 🌟 V53: 인덱스를 받아서 특정 힌트만 딱 삭제하고 복구시키는 함수
     executeHintCancel: (groupId, hintIndex) => {
         const gRef = dbRef.child(`groups/${groupId}`);
         gRef.once('value').then(gSnap => {
@@ -216,7 +210,11 @@ const App = {
                 updates[`groups/${groupId}/usedHints`] = newUsedHints;
                 
                 dbRef.update(updates).then(() => {
-                    alert(`✅ ${groupId}조의 [${canceledHint}] 힌트가 취소되고 기회가 복구되었습니다.`);
+                    const settings = App.getSettings();
+                    const hSec = parseFloat(settings.hintDuration) || 3;
+                    const displaySec = hSec < 1 ? 1 : hSec;
+                    let displayHint = canceledHint === '3초 보기' ? `전체 ${displaySec}초 보기` : canceledHint;
+                    alert(`✅ ${groupId}조의 [${displayHint}] 힌트가 취소되고 기회가 복구되었습니다.`);
                 });
             }
         });
@@ -241,7 +239,6 @@ const App = {
         return data.groups[groupId];
     },
     
-    // 🌟 데이터 덮어쓰기(set) 원천 차단 - 회원 접속 시 안전한 트리거 사용
     joinMember: (groupId, name) => {
         const gRef = dbRef.child(`groups/${groupId}`);
         gRef.child(`membersData/${name}`).update({ type: 'pen', data: '', color: '#ffffff', size: 5 });
@@ -251,7 +248,6 @@ const App = {
         });
     },
 
-    // 🌟 학생 스스로 이름 변경하기 로직
     changeMemberName: (groupId, oldName, newName) => {
         const gRef = dbRef.child(`groups/${groupId}`);
         gRef.once('value').then(snap => {
@@ -280,14 +276,12 @@ const App = {
 
     setGroupName: (groupId, customName) => { dbRef.child(`groups/${groupId}/customName`).set(customName); },
 
-    // 🌟 동시 그림/타이핑 시 덮어쓰기 데이터 파괴 오류의 핵심 원인 해결 (경로 타겟팅 업데이트)
     updateMemberBoard: (groupId, memberName, boardObj) => {
         dbRef.child(`groups/${groupId}/membersData/${memberName}`).update(boardObj);
     },
 
     getAllGroups: () => App.getData().groups || {},
 
-    // 🌟 파란색 글씨 버그 수정 (단순 포함 검사가 아닌 개수 차감 방식 도입)
     gradeAnswer: (correct, submitted) => {
         if (!correct || !submitted) return { rate: 0, html: '제출된 답이 없습니다.' };
         if (submitted.startsWith('data:image')) return { rate: 0, html: '📝 손글씨 모드 (자동채점 불가)' };
@@ -296,27 +290,24 @@ const App = {
         let sStr = submitted.replace(/\s+/g, '');
         if (sStr.length < cStr.length) sStr = sStr.padEnd(cStr.length, ' ');
         
-        // 1. 정답의 글자별 개수 카운팅 맵 생성
         let correctFreq = {};
         for (let char of cStr) {
             correctFreq[char] = (correctFreq[char] || 0) + 1;
         }
         
-        // 2. 정확히 제자리에 맞은 글자(검은색)는 미리 차감
         for (let i = 0; i < cStr.length; i++) {
             if (cStr[i] === sStr[i]) {
                 correctFreq[cStr[i]]--;
             }
         }
         
-        // 3. 남은 잉여 개수로 파란색(자리 틀림) 부여
         let correctCount = 0, htmlResult = '';
         for (let i = 0; i < cStr.length; i++) {
             if (cStr[i] === sStr[i]) { 
                 correctCount++; 
                 htmlResult += `<span>${sStr[i]}</span>`; 
             } else if (sStr[i] !== ' ' && sStr[i] !== 'X' && correctFreq[sStr[i]] && correctFreq[sStr[i]] > 0) {
-                correctFreq[sStr[i]]--; // 사용된 글자는 개수 차감
+                correctFreq[sStr[i]]--; 
                 htmlResult += `<span style="color:#3498db; font-weight:bold;">${sStr[i]}</span>`;
             } else { 
                 htmlResult += `<span class="wrong-char">${sStr[i] !== ' ' ? sStr[i] : 'X'}</span>`; 

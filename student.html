@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>[학생] 놀토 받쓰</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=53">
+    <link rel="stylesheet" href="css/style.css?v=56">
 </head>
 <body>
     <div id="login-modal" class="modal active">
@@ -36,28 +36,18 @@
     </div>
 
     <div id="student-main" class="hidden">
-        <!-- 🌟 Grid 기반 무적 레이아웃 -->
         <header class="header" style="display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; min-width: 1050px; margin: 0 auto; height: 75px; padding: 0 20px; gap: 20px;">
-            
-            <!-- 왼쪽: 조, 이름, 변경버튼, 힌트요청 -->
             <div class="header-left" style="display: flex; align-items: center; gap: 8px; overflow: hidden; justify-content: flex-start;">
                 <h2 id="group-title" style="margin: 0; font-size: 1.6rem; flex-shrink: 0;"></h2>
-                <span id="my-name-display" style="font-size:1.4rem; color:#333; font-weight:bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1; display: block;"></span>
-                
+                <span id="my-name-display" style="font-size:1.4rem; color:#333; font-weight:bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1; display: block; max-width: 180px;"></span>
                 <button id="btn-edit-name" onclick="changeMyName()" style="height: 38px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; background:#e3f2fd; color:#1565c0; border:1px solid #90caf9; padding:0 10px; border-radius:5px; cursor:pointer; font-size:1.1rem; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05); flex-shrink: 0;">✏️ 이름 변경</button>
-                
                 <span id="master-badge" class="badge hidden" style="height: 38px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; padding:0 10px; font-size:1.1rem; font-weight:bold; flex-shrink: 0; margin:0;">👑 방장(제출자)</span>
-                
                 <button id="btn-hint" class="hidden" onclick="openHintModal()" style="height: 38px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; background:#1abc9c; color:white; border:none; padding:0 10px; border-radius:5px; cursor:pointer; font-size:1.1rem; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); flex-shrink: 0; margin:0;">🛎️ 힌트 요청</button>
             </div>
-
-            <!-- 중앙: 라운드, 타이머 -->
             <div class="header-center" style="display: flex; align-items: center; justify-content: center; gap: 15px; white-space: nowrap;">
                 <span id="round-display" style="font-size: 1.8rem; color: #d32f2f; font-weight: bold;"></span>
                 <span id="timer-display" style="font-size: 2.5rem; color: #1976d2; font-weight: bold; font-variant-numeric: tabular-nums; width: 130px; text-align: left; display: inline-block;">⏱️ --:--</span>
             </div>
-
-            <!-- 오른쪽: 보기 모드, 권한 넘기기 -->
             <div class="header-right" style="display: flex; align-items: center; gap: 15px; justify-content: flex-end; overflow: hidden;">
                 <div class="view-control" style="display:flex; align-items:center; flex-shrink: 0;">
                     <label style="margin-right:5px; font-size: 1.1rem;">👀 보기:</label>
@@ -65,7 +55,6 @@
                         <option value="me">👉 받쓰판 작성하기</option>
                     </select>
                 </div>
-
                 <div id="transfer-panel" class="master-control hidden" style="display:flex; align-items:center; border-left: 2px solid #ccc; padding-left: 15px; flex-shrink: 0;">
                     <label style="margin-right:5px; font-size: 1.1rem;">👑 권한:</label>
                     <select id="member-list" class="wide-dropdown fixed-select-sm"></select>
@@ -81,7 +70,6 @@
                 <button id="btn-text" onclick="setMode('text')">⌨️ 텍스트(T)</button>
                 <button onclick="clearBoard()">🗑️ 받쓰판 지우기</button>
             </div>
-            
             <div class="tool-settings" style="margin-left:20px;">
                 <label>색상: <input type="color" id="color-picker" value="#ffffff"></label>
                 <label>크기: <input type="range" id="size-picker" min="2" max="50" value="5"></label>
@@ -91,11 +79,9 @@
         <div class="board-container">
             <canvas id="drawing-board" width="1000" height="562"></canvas>
             <textarea id="text-board" class="hidden" placeholder="정답을 타이핑하세요..."></textarea>
-            
             <img id="shared-board" class="hidden" src="" alt="공유화면">
             <div id="shared-text" class="hidden board-text-overlay"></div>
             <div id="read-only-msg" class="hidden" style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.7); color:white; padding:10px; border-radius:5px; z-index:100;">👀 관전 모드 (읽기 전용)</div>
-            
             <div id="lock-overlay" class="lock-overlay hidden">
                 <div class="lock-message">
                     <span style="font-size: 5rem;">🔒</span><br>
@@ -113,7 +99,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="js/app.js?v=53"></script>
+    <script src="js/app.js?v=56"></script>
 
     <script>
         let myGroup = '', myName = '', isMaster = false, isDrawing = false, mode = 'pen';
@@ -169,11 +155,9 @@
             if (settings.passwords[myGroup] && settings.passwords[myGroup] !== pw) {
                 alert('비밀번호가 틀렸습니다.'); return;
             }
-            
             if (myName.length > 10) {
                 alert('❌ 이름/별명은 띄어쓰기 포함 최대 10자까지만 가능합니다.'); return;
             }
-
             if (groups[myGroup] && groups[myGroup].members && groups[myGroup].members[myName]) {
                 alert('❌ 이미 해당 모둠에 접속 중인 이름입니다.'); return;
             }
@@ -188,17 +172,14 @@
             let newName = prompt("새로운 이름이나 별명을 입력하세요. (띄어쓰기 포함 최대 10자)");
             if (newName && newName.trim() !== "" && newName !== myName) {
                 newName = newName.trim();
-                
                 if (newName.length > 10) {
                     alert('❌ 이름/별명은 띄어쓰기 포함 최대 10자까지만 가능합니다.');
                     return;
                 }
-
                 const groups = App.getAllGroups();
                 if (groups[myGroup] && groups[myGroup].members && groups[myGroup].members[newName]) {
                     alert('❌ 이미 해당 모둠에 접속 중인 이름입니다.'); return;
                 }
-                
                 App.changeMemberName(myGroup, myName, newName);
                 myName = newName;
                 alert("✅ 이름/별명이 변경되었습니다.");
@@ -209,12 +190,14 @@
             const settings = App.getSettings();
             const groupData = App.getGroup(myGroup);
             const limit = settings.hintLimit || 1;
-            const hSec = settings.hintDuration || 3;
+            
+            const hSec = parseFloat(settings.hintDuration) || 3;
+            const displaySec = hSec < 1 ? 1 : hSec;
+
             const usedHints = groupData.usedHints || [];
             const allReqs = App.getHintRequests();
             
             let myPendingReqs = {};
-
             for (let reqId in allReqs) {
                 if (allReqs[reqId].group == myGroup && allReqs[reqId].status === 'pending') {
                     myPendingReqs[allReqs[reqId].type] = reqId;
@@ -227,7 +210,7 @@
             const hintTypes = ['전체 띄어쓰기', '한 글자 보기', '초성 2개 보기', '3초 보기', '오답수 알려주기'];
             hintTypes.forEach((type) => {
                 const btn = document.getElementById(`btn-hint-${type}`);
-                let dispText = type === '3초 보기' ? `전체 ${hSec}초 보기` : type;
+                let dispText = type === '3초 보기' ? `전체 ${displaySec}초 보기` : type;
                 
                 if (myPendingReqs[type]) {
                     btn.style.opacity = '1'; 
@@ -266,7 +249,8 @@
                     return alert("❌ 오류: 띄어쓰기나 기호 없이 숫자 딱 하나만 입력해주세요! (예: 5)");
                 }
             } else if (hintType === '초성 2개 보기') {
-                param = prompt("초성을 확인할 두 글자의 번호를 쉼표로 구분하여 입력하세요.\n(예: 3, 5)");
+                param = prompt("초성을 확인할 두 글자의 번호를 쉼표로 구분하여 입력하세요.
+(예: 3, 5)");
                 if (!param) return;
                 let parts = param.split(',').map(s => s.trim()).filter(s => s !== '');
                 if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) {

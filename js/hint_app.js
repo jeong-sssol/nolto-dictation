@@ -31,7 +31,7 @@ window.addEventListener('app-sync', () => {
     for (let reqId in hints) {
         if (hints[reqId].status === 'approved' && !processedHints.has(reqId)) {
             processedHints.add(reqId);
-            executeHint(hints[reqId].type, hints[reqId].param);
+            executeHint(hints[reqId].type, hints[reqId].param, hints[reqId].group);
         }
     }
 });
@@ -148,15 +148,16 @@ function showToast(msg) {
     setTimeout(() => toast.classList.add('hidden'), 4000);
 }
 
-function executeHint(type, param) {
+function executeHint(type, param, groupId) {
     const settings = App.getSettings();
-    const hSec = settings.hintDuration || 3;
-    const ms = hSec * 1000 + 500;
+    const hSec = parseFloat(settings.hintDuration) || 3;
+    const ms = hSec * 1000; 
+    const displaySec = hSec < 1 ? 1 : hSec;
 
     if (type === '전체 띄어쓰기') {
         const container = document.getElementById('tv-word-container');
         container.classList.add('tv-space-active');
-        showToast(`💡 전체 띄어쓰기 (${hSec}초 후 닫힘)`);
+        showToast(`💡 전체 띄어쓰기 (${displaySec}초 후 닫힘)`);
         setTimeout(() => { container.classList.remove('tv-space-active'); }, ms);
         
     } else if (type === '초성 2개 보기') {
@@ -186,7 +187,7 @@ function executeHint(type, param) {
             inner.style.color = "#e74c3c";
         });
         
-        showToast(`💡 지정 초성 오픈 (${hSec}초 후 닫힘)`);
+        showToast(`💡 지정 초성 오픈 (${displaySec}초 후 닫힘)`);
         setTimeout(() => {
             targets.forEach(item => {
                 item.choHintShown = false;
@@ -197,24 +198,33 @@ function executeHint(type, param) {
         }, ms);
 
     } else if (type === '3초 보기') {
-        showToast(`💡 전체 공개 (${hSec}초 후 닫힘)`);
+        showToast(`💡 전체 공개 (${displaySec}초 후 닫힘)`);
         const unrevealed = boxData.filter(d => !d.revealed);
         unrevealed.forEach(item => revealSingleBox(item.id, false));
         
         const num = document.getElementById('tv-countdown-number');
         num.classList.remove('hidden');
         
-        let cnt = hSec;
-        num.innerText = cnt;
-        const iv = setInterval(() => {
-            cnt--;
-            if(cnt > 0) num.innerText = cnt;
-            else {
+        if (hSec <= 1) {
+            num.innerText = '1';
+            setTimeout(() => {
+                num.classList.add('hidden');
+                unrevealed.forEach(item => revertSingleBox(item.id));
+            }, ms);
+        } else {
+            let cnt = Math.ceil(hSec);
+            num.innerText = cnt;
+            const iv = setInterval(() => {
+                cnt--;
+                if(cnt > 0) num.innerText = cnt;
+            }, 1000);
+            
+            setTimeout(() => {
                 clearInterval(iv);
                 num.classList.add('hidden');
                 unrevealed.forEach(item => revertSingleBox(item.id));
-            }
-        }, 1000);
+            }, ms);
+        }
 
     } else if (type === '한 글자 보기') {
         const targetId = parseInt(param);
@@ -222,12 +232,70 @@ function executeHint(type, param) {
         if(!item) return showToast("❌ 해당 번호를 찾을 수 없습니다.");
         if(item.revealed) return showToast("❌ 이미 열려있는 글자입니다.");
         
-        showToast(`💡 ${targetId}번 글자 보기 (${hSec}초 후 닫힘)`);
+        showToast(`💡 ${targetId}번 글자 보기 (${displaySec}초 후 닫힘)`);
         revealSingleBox(targetId, false);
         setTimeout(() => revertSingleBox(targetId), ms);
         
     } else if (type === '오답수 알려주기') {
-        showToast("💡 오답수 확인 완료 (화면 변화 없음)");
+        const currentAns = (settings.answers[settings.currentRound] || '').replace(/\//g, '');
+        const gData = App.getGroup(groupId);
+        const masterName = gData.master || '';
+        const mData = (gData.membersData && gData.membersData[masterName]) ? gData.membersData[masterName].data : '';
+
+        if (!mData || mData.startsWith('data:image')) {
+            showToast(`❌ ${groupId}조: 손글씨 모드이거나 제출된 답이 없어 오답 분석 불가`);
+            return;
+        }
+
+        const cStr = currentAns.replace(/\s+/g, '');
+        let sStr = mData.replace(/\s+/g, '');
+        if (sStr.length < cStr.length) sStr = sStr.padEnd(cStr.length, ' ');
+
+        let correctFreq = {};
+        for (let char of cStr) {
+            correctFreq[char] = (correctFreq[char] || 0) + 1;
+        }
+
+        for (let i = 0; i < cStr.length; i++) {
+            if (cStr[i] === sStr[i]) {
+                correctFreq[cStr[i]]--;
+            }
+        }
+
+        let blueCount = 0;
+        let redCount = 0;
+        for (let i = 0; i < cStr.length; i++) {
+            if (cStr[i] !== sStr[i]) {
+                if (sStr[i] !== ' ' && sStr[i] !== 'X' && correctFreq[sStr[i]] && correctFreq[sStr[i]] > 0) {
+                    correctFreq[sStr[i]]--;
+                    blueCount++;
+                } else {
+                    redCount++;
+                }
+            }
+        }
+
+        let overlay = document.getElementById('hint-result-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'hint-result-overlay';
+            overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:10000; display:flex; justify-content:center; align-items:center;';
+            document.body.appendChild(overlay);
+        }
+
+        overlay.innerHTML = `
+            <div style="background:white; padding:50px 80px; border-radius:20px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+                <h2 style="color:#1976d2; font-size:4rem; margin:0 0 30px 0;">[ ${groupId}조 힌트 결과 ]</h2>
+                <div style="font-size:3.5rem; color:#e74c3c; margin-bottom:15px; font-weight:bold;">❌ 오답 : ${redCount}개 / <span style="font-size:2.5rem; color:#555;">${cStr.length}</span></div>
+                <div style="font-size:3.5rem; color:#3498db; margin-bottom:10px; font-weight:bold;">⚠️ 이탈 : ${blueCount}개 / <span style="font-size:2.5rem; color:#555;">${cStr.length}</span></div>
+            </div>
+        `;
+        overlay.classList.remove('hidden');
+
+        // 🌟 V56: 오답수는 다른 힌트와 무관하게 3초 고정 (읽을 시간 확보)
+        setTimeout(() => {
+            overlay.classList.add('hidden');
+        }, 3000);
     }
 }
 

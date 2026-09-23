@@ -24,7 +24,7 @@ body { margin: 0; padding: 0; background-color: #f4f1ea; color: #333; min-width:
 .modal-content button { background: #f57c00; color: white; border: none; cursor: pointer; }
 
 /* 🌟 교사모드 셋팅창 시간입력칸 큼직하게 CSS 추가 */
-.time-input { width: 85px !important; height: 40px !important; font-size: 1.2rem !important; text-align: center !important; padding: 5px !important; margin: 0 3px !important; }
+.time-input { width: 70px !important; height: 40px !important; font-size: 1.2rem !important; text-align: center !important; padding: 5px !important; margin: 0 3px !important; }
 
 .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 .teacher-header { background: #1a252f; color: white; border-bottom: 3px solid #f1c40f;}
