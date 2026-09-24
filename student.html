@@ -249,8 +249,7 @@
                     return alert("❌ 오류: 띄어쓰기나 기호 없이 숫자 딱 하나만 입력해주세요! (예: 5)");
                 }
             } else if (hintType === '초성 2개 보기') {
-                param = prompt("초성을 확인할 두 글자의 번호를 쉼표로 구분하여 입력하세요.
-(예: 3, 5)");
+                param = prompt("초성을 확인할 두 글자의 번호를 쉼표로 구분하여 입력하세요.\n(예: 3, 5)");
                 if (!param) return;
                 let parts = param.split(',').map(s => s.trim()).filter(s => s !== '');
                 if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) {
