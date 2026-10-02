@@ -292,7 +292,6 @@ function executeHint(type, param, groupId) {
         `;
         overlay.classList.remove('hidden');
 
-        // 🌟 V56: 오답수는 다른 힌트와 무관하게 3초 고정 (읽을 시간 확보)
         setTimeout(() => {
             overlay.classList.add('hidden');
         }, 3000);

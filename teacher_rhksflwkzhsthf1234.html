@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>[교사] 놀토 받쓰</title>
     <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=56">
+    <link rel="stylesheet" href="css/style.css?v=59">
 </head>
 <body class="teacher-bg">
     <header class="teacher-header" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 30px; flex-wrap:wrap; gap:10px;">
@@ -93,7 +93,6 @@
         <div class="sidebar-section">
             <h3 style="color:#27ae60;">💡 힌트 및 받쓰판 제어</h3>
             
-            <!-- 🌟 V56: 모든 숫자 입력칸 너비를 70px로 넉넉하게 통일 -->
             <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                 <label style="font-weight:bold;">모둠당 힌트 제한(누적):</label>
                 <div><input type="number" id="set-hint-limit" value="1" min="1" max="10" style="width:70px; text-align:center;" onchange="App.saveSettingsOnly()"> 회</div>
@@ -119,8 +118,8 @@
             <h2 style="color: #1976d2; text-align:center;">⚙️ 기초 & 노래 구간 세팅</h2>
             <div class="setting-row" style="background:#f4f1ea; padding:15px; border-radius:10px; justify-content:space-around;">
                 <label>비밀번호: <input type="text" id="set-admin-pw" style="width:150px;"></label>
-                <label>모둠 수: <input type="number" id="set-groups" min="1" max="10" style="width:60px;" onchange="renderDynamicInputs()"></label>
-                <label>총 라운드: <input type="number" id="set-total-rounds" min="1" max="10" style="width:60px;" onchange="renderDynamicInputs()"></label>
+                <label>모둠 수: <input type="number" id="set-groups" min="1" max="10" style="width:60px;" onchange="refreshDynamicInputs()"></label>
+                <label>총 라운드: <input type="number" id="set-total-rounds" min="1" max="10" style="width:60px;" onchange="refreshDynamicInputs()"></label>
             </div>
 
             <h3 style="margin-top:15px; color:#27ae60;">🎵 라운드별 정답 & 노래 구간 세팅</h3>
@@ -148,16 +147,18 @@
         </div>
     </div>
 
+    <!-- 🌟 V58: 하단에 빈 공간(padding-bottom:120px)이 추가된 cctv-grid -->
     <div class="cctv-grid" id="cctv-container"></div>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="js/app.js?v=56"></script>
+    <script src="js/app.js?v=59"></script>
 
     <script>
         const cctvContainer = document.getElementById('cctv-container');
         let unreadHints = 0;
         let teacherTimerInterval = null;
+        let lastAlertedHintLimit = -1; // 🌟 V58: 모든 조 힌트 소진 알림 기록 변수
 
         window.onload = () => {
             const settings = App.getSettings();
@@ -187,6 +188,41 @@
         function toggleActionPanel() {
             document.getElementById('action-pos-panel').classList.toggle('hidden');
             document.getElementById('hint-panel-overlay').classList.toggle('hidden');
+        }
+
+        // 🔥 V58: 세팅창 모둠수/라운드수 변경 시 데이터 날아가는 현상 완벽 방지
+        function refreshDynamicInputs() {
+            const groupCount = parseInt(document.getElementById('set-groups').value) || 6;
+            const roundCount = parseInt(document.getElementById('set-total-rounds').value) || 3;
+            
+            let currentPws = {};
+            let currentAns = {};
+            let currentTimings = {};
+
+            // 1. 현재 화면(DOM)에 적혀있는 값들을 영혼까지 끌어모아 백업합니다.
+            for (let i = 1; i <= 10; i++) {
+                let p = document.getElementById(`pw-${i}`);
+                if (p) currentPws[i] = p.value;
+
+                let a = document.getElementById(`ans-${i}`);
+                if (a) currentAns[i] = a.value;
+
+                if (document.getElementById(`t-i-s-m-${i}`)) {
+                    currentTimings[i] = {
+                        iSM: parseInt(document.getElementById(`t-i-s-m-${i}`).value) || 0,
+                        iSS: parseFloat(document.getElementById(`t-i-s-s-${i}`).value) || 0,
+                        iEM: parseInt(document.getElementById(`t-i-e-m-${i}`).value) || 0,
+                        iES: parseFloat(document.getElementById(`t-i-e-s-${i}`).value) || 0,
+                        aSM: parseInt(document.getElementById(`t-a-s-m-${i}`).value) || 0,
+                        aSS: parseFloat(document.getElementById(`t-a-s-s-${i}`).value) || 0,
+                        aEM: parseInt(document.getElementById(`t-a-e-m-${i}`).value) || 0,
+                        aES: parseFloat(document.getElementById(`t-a-e-s-${i}`).value) || 0
+                    };
+                }
+            }
+
+            // 2. 백업해둔 값으로 다시 화면을 안전하게 재구성합니다.
+            renderDynamicInputs(currentPws, currentAns, currentTimings);
         }
 
         function renderDynamicInputs(existingPws = {}, existingAns = {}, existingTimings = {}) {
@@ -292,14 +328,14 @@
         }
 
         function resetAllData() {
-            if(confirm("노래와 정답을 포함한 모든 데이터가 초기화됩니다. \n정말 새 수업을 준비하시겠습니까?")) {
+            if(confirm("노래와 정답을 포함한 모든 데이터가 초기화됩니다. 정말 새 수업을 준비하시겠습니까?")) {
                 App.factoryReset();
                 setTimeout(() => location.reload(), 500);
             }
         }
 
         function resetNextClassData() {
-            if(confirm("모든 설정은 유지하고, 학생 목록과 받쓰판만 초기화하시겠습니까? \n(다음 반 수업용)")) {
+            if(confirm("정답 및 노래 설정은 유지하고, 학생 목록과 받쓰판만 초기화하시겠습니까? (다음 반 수업용)")) {
                 App.resetForNextClass();
                 setTimeout(() => location.reload(), 500);
             }
@@ -413,7 +449,7 @@
         }
 
         function cancelTeacherHint(reqId) {
-            if(confirm("이 힌트 요청을 거절(취소)하시겠습니까? \n학생의 힌트 차감 횟수가 복구됩니다.")) {
+            if(confirm("이 힌트 요청을 거절(취소)하시겠습니까? 학생의 힌트 차감 횟수가 복구됩니다.")) {
                 App.cancelHint(reqId);
             }
         }
@@ -531,6 +567,18 @@
             
             document.getElementById('font-size-val').innerText = tFontSize;
 
+            // 🌟 V59: 승인 대기 중인 힌트 개수 파악
+            const allReqs = App.getHintRequests();
+            let pendingCounts = {};
+            for (let key in allReqs) {
+                if (allReqs[key].status === 'pending') {
+                    pendingCounts[allReqs[key].group] = (pendingCounts[allReqs[key].group] || 0) + 1;
+                }
+            }
+
+            let allUsed = true;
+            const limit = settings.hintLimit || 1;
+
             if (cctvContainer.children.length !== parseInt(settings.groupCount)) {
                 cctvContainer.innerHTML = '';
                 for (let i = 1; i <= settings.groupCount; i++) {
@@ -553,6 +601,14 @@
 
             for (let i = 1; i <= settings.groupCount; i++) {
                 const gData = groups[i] || {};
+                
+                // 🌟 V59: 설정된 전체 모둠 기준으로 '승인된' 힌트 수량만 체크
+                const pending = pendingCounts[i] || 0;
+                const approvedCount = (gData.hintCount || 0) - pending;
+                if (approvedCount < limit) {
+                    allUsed = false;
+                }
+
                 const masterName = gData.master || '';
                 const membersDataObj = gData.membersData || {};
                 const mData = membersDataObj[masterName] || { type: 'pen', data: '', color: '#ffffff' };
@@ -607,6 +663,16 @@
                         }
                     }
                 }
+            }
+
+            // 🌟 V59: 설정된 모든 조가 승인된 힌트를 소진했을 경우 딱 1번만 알림
+            if (allUsed) {
+                if (lastAlertedHintLimit !== limit) {
+                    setTimeout(() => alert(`🚨 설정된 모든 조가 배정된 힌트(${limit}회)를 모두 사용했습니다!`), 500);
+                    lastAlertedHintLimit = limit;
+                }
+            } else {
+                lastAlertedHintLimit = -1; // 힌트 횟수가 늘어나거나 리셋되면 다시 알림 준비
             }
         }
     </script>

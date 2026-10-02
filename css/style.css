@@ -81,7 +81,8 @@ textarea {
 .modal-content input { border: 1px solid #aaa; border-radius: 5px;}
 .modal-content button { padding: 12px; font-size: 1.2rem; color: white; border: none; border-radius: 5px; cursor: pointer;}
 
-.cctv-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; padding: 20px; }
+/* 🌟 V58: cctv-grid 하단에 여백을 크게 주어 FAB 버튼이 CCTV를 가리지 않도록 함 */
+.cctv-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; padding: 20px; padding-bottom: 120px; }
 .cctv-card { background: #fff; border-radius: 10px; padding: 15px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 .cctv-board { 
     width: 100%; 
